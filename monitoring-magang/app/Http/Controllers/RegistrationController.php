@@ -35,16 +35,11 @@ class RegistrationController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $response = $this->registrationService->create(
-            $request->all()
-        );
-
-        return response()->json(
-            $response->json(),
-            $response->status()
-        );
-    }
+{
+    return $this->registrationService->create(
+        $request->all()
+    );
+}
 
     public function update(Request $request, $id)
     {
