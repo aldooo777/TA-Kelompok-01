@@ -14,6 +14,11 @@ class RegistrationController extends Controller
         $this->registrationService = $registrationService;
     }
 
+    public function create()
+{
+    return view('registration.create');
+}
+
     public function index()
     {
         $response = $this->registrationService->getAll();
@@ -34,11 +39,28 @@ class RegistrationController extends Controller
         );
     }
 
-    public function store(Request $request)
+   public function store(Request $request)
 {
-    return $this->registrationService->create(
-        $request->all()
-    );
+    $cisUser = session('cis_user');
+
+    $data = [
+        'mahasiswa_id' => $cisUser['nim'] ?? null,
+        'tempat_magang' => $request->input('tempat_magang'),
+    ];
+
+    $response = $this->registrationService->create($data);
+
+    if ($response->successful()) {
+        return redirect()
+            ->route('registration.create')
+            ->with('success', $response->json('message'));
+    }
+
+    return back()
+        ->withErrors([
+            'registration' => $response->json('message') ?? 'Pendaftaran magang gagal.',
+        ])
+        ->withInput();
 }
 
     public function update(Request $request, $id)
