@@ -64,8 +64,16 @@ class RegistrationService
 
     /*
     |--------------------------------------------------------------------------
-    | 3. Mahasiswa ditemukan
-    |    Lanjutkan ke registration-service
+    | 3. Gunakan identitas mahasiswa dari CIS
+    |--------------------------------------------------------------------------
+    */
+
+    $data['mahasiswa_id'] = $student['nim'];
+    $data['nama'] = $student['nama'];
+
+    /*
+    |--------------------------------------------------------------------------
+    | 4. Kirim data yang sudah diverifikasi ke registration-service
     |--------------------------------------------------------------------------
     */
 
