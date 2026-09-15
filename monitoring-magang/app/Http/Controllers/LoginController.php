@@ -28,8 +28,14 @@ class LoginController extends Controller
                     ->withInput($request->only('username'));
             }
 
+            // Data user dari CIS
+            $user = $response['user'];
+
+            // Untuk sementara, NIM mahasiswa diambil dari data yang kita miliki
+            $user['nim'] = '42324032';
+
             session([
-                'cis_user' => $response['user'],
+                'cis_user' => $user,
                 'cis_token' => $response['token'],
             ]);
 
