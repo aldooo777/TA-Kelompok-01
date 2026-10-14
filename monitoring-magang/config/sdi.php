@@ -3,6 +3,7 @@
 return [
 
     'cis_api_url' => env('CIS_API_URL'),
+    'cis_new_api_url' => env('CIS_NEW_API_URL'),
 
     'cis_api_username' => env('CIS_API_USERNAME'),
 
