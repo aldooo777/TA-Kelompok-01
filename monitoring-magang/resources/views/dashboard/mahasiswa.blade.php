@@ -24,13 +24,6 @@
     </p>
 
     <p>
-        NIM:
-        <strong>
-            {{ session('cis_user')['nim'] ?? 'Belum tersedia' }}
-        </strong>
-    </p>
-
-    <p>
         <a href="{{ route('registration.create') }}">
             <button type="button">Daftar Magang</button>
         </a>
