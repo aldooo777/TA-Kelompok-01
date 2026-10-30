@@ -11,31 +11,6 @@ Route::post('/cis/login', [CisController::class, 'login'])
     Route::get('/cis/mahasiswa/{nim}', [CisController::class, 'getStudentByNim'])
     ->name('api.cis.mahasiswa');
 
-Route::get('/test', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'API Gateway berhasil berjalan',
-        'service' => 'api-gateway',
-    ]);
-});
-
-Route::get('/registration/test', function () {
-    $response = Http::get(
-        config('services.registration.url') . '/api/test'
-    );
-
-    return response()->json([
-        'success' => true,
-        'gateway' => 'api-gateway',
-        'registration-service' => $response->json(),
-    ]);
-});
-
-Route::get('/registrations', [RegistrationController::class, 'index']);
-Route::post('/registrations', [RegistrationController::class, 'store']);
-Route::get('/registrations/{id}', [RegistrationController::class, 'show']);
-Route::put('/registrations/{id}', [RegistrationController::class, 'update']);
-Route::delete('/registrations/{id}', [RegistrationController::class, 'destroy']);
 
 Route::post('/login', [LoginController::class, 'login'])
     ->name('api.login');

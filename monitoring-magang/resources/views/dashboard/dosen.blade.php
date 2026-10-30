@@ -1,796 +1,639 @@
 
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+@extends('layouts.pdlk')
 
-    <title>Dashboard Dosen | Monitoring Magang</title>
+@section('title', 'Dashboard Dosen | Monitoring PDLK')
+@section('breadcrumb', 'Portal / Dashboard')
+@section('page-title', 'Dashboard Dosen')
 
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+@section('content')
+
+@php
+    $cisUser = session('cis_user', []);
+
+    $namaDosen = $cisUser['nama']
+        ?? $cisUser['name']
+        ?? $cisUser['username']
+        ?? 'Bapak/Ibu Dosen';
+
+    $stats = [
+        [
+            'label' => 'Total Pendaftaran',
+            'value' => $registrationStats['total'] ?? 0,
+            'description' => 'Seluruh pengajuan yang tercatat.',
+            'icon' => '▤',
+            'class' => 'dosen-blue',
+        ],
+        [
+            'label' => 'Menunggu Persetujuan',
+            'value' => $registrationStats['menunggu'] ?? 0,
+            'description' => 'Pengajuan yang belum diproses.',
+            'icon' => '◷',
+            'class' => 'dosen-orange',
+        ],
+        [
+            'label' => 'Diterima',
+            'value' => $registrationStats['diterima'] ?? 0,
+            'description' => 'Pengajuan yang telah diterima.',
+            'icon' => '✓',
+            'class' => 'dosen-green',
+        ],
+        [
+            'label' => 'Ditolak',
+            'value' => $registrationStats['ditolak'] ?? 0,
+            'description' => 'Pengajuan yang telah ditolak.',
+            'icon' => '×',
+            'class' => 'dosen-red',
+        ],
+    ];
+
+    $menuDosen = [
+        [
+            'judul' => 'Daftar Pendaftaran',
+            'ikon' => '▤',
+            'deskripsi' => 'Periksa pengajuan mahasiswa dan perbarui status pendaftaran.',
+            'status' => 'Tersedia',
+            'tersedia' => true,
+        ],
+        [
+            'judul' => 'Mahasiswa Bimbingan',
+            'ikon' => '♙',
+            'deskripsi' => 'Lihat mahasiswa yang menjadi tanggung jawab pembimbing.',
+            'status' => 'Tahap berikutnya',
+            'tersedia' => false,
+        ],
+        [
+            'judul' => 'Monitoring Mahasiswa',
+            'ikon' => '◷',
+            'deskripsi' => 'Pantau perkembangan dan kendala mahasiswa selama PDLK.',
+            'status' => 'Tahap berikutnya',
+            'tersedia' => false,
+        ],
+        [
+            'judul' => 'Laporan dan Penilaian',
+            'ikon' => '☆',
+            'deskripsi' => 'Periksa laporan dan hasil evaluasi kegiatan PDLK.',
+            'status' => 'Tahap berikutnya',
+            'tersedia' => false,
+        ],
+    ];
+@endphp
+
+<style>
+    .dosen-dashboard {
+        --dosen-blue: #348db8;
+        --dosen-blue-dark: #287ba5;
+        --dosen-text: #26364d;
+        --dosen-muted: #718096;
+        --dosen-border: #e1e7ef;
+
+        color: var(--dosen-text);
+    }
+
+    .dosen-dashboard,
+    .dosen-dashboard * {
+        box-sizing: border-box;
+    }
+
+    /* Banner sambutan */
+    .dosen-dashboard .dosen-hero {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        min-height: 190px;
+        padding: 30px;
+        margin-bottom: 26px;
+        overflow: hidden;
+        border-radius: 5px;
+        background: linear-gradient(115deg, #287eaa, #3699c3);
+        color: #fff;
+    }
+
+    .dosen-dashboard .dosen-hero::after {
+        position: absolute;
+        top: -100px;
+        right: 65px;
+        width: 250px;
+        height: 250px;
+        border: 27px solid rgba(255, 255, 255, .08);
+        border-radius: 50%;
+        content: "";
+        pointer-events: none;
+    }
+
+    .dosen-dashboard .dosen-hero-content {
+        position: relative;
+        z-index: 1;
+        max-width: 750px;
+    }
+
+    .dosen-dashboard .dosen-hero-tag {
+        display: inline-block;
+        padding: 6px 11px;
+        margin-bottom: 14px;
+        border: 1px solid rgba(255, 255, 255, .35);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, .12);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .4px;
+    }
+
+    .dosen-dashboard .dosen-hero h2 {
+        margin: 0 0 10px;
+        color: #fff;
+        font-size: clamp(22px, 2.3vw, 29px);
+        font-weight: 700;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+
+    .dosen-dashboard .dosen-hero p {
+        max-width: 650px;
+        margin: 0;
+        color: rgba(255, 255, 255, .94);
+        font-size: 13px;
+        line-height: 1.9;
+    }
+
+    .dosen-dashboard .dosen-hero-icon {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 78px;
+        width: 78px;
+        height: 78px;
+        border: 1px solid rgba(255, 255, 255, .25);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, .13);
+        font-size: 37px;
+    }
+
+    /* Panel */
+    .dosen-dashboard .dosen-panel {
+        padding: 24px;
+        margin-bottom: 26px;
+        border: 1px solid var(--dosen-border);
+        border-radius: 5px;
+        background: #fff;
+    }
+
+    .dosen-dashboard .dosen-section-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+
+    .dosen-dashboard .dosen-section-heading h3 {
+        margin: 0 0 5px;
+        color: var(--dosen-text);
+        font-size: 19px;
+        font-weight: 600;
+        line-height: 1.5;
+    }
+
+    .dosen-dashboard .dosen-section-heading p {
+        margin: 0;
+        color: var(--dosen-muted);
+        font-size: 12px;
+        line-height: 1.8;
+    }
+
+    /* Tombol */
+    .dosen-dashboard .dosen-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        min-height: 39px;
+        padding: 9px 13px;
+        border: 1px solid var(--dosen-blue);
+        border-radius: 4px;
+        background: var(--dosen-blue);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.5;
+        text-decoration: none;
+        transition: background .15s ease;
+    }
+
+    .dosen-dashboard .dosen-button:hover {
+        border-color: var(--dosen-blue-dark);
+        background: var(--dosen-blue-dark);
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .dosen-dashboard .dosen-button:focus-visible {
+        outline: 3px solid rgba(52, 141, 184, .25);
+        outline-offset: 3px;
+    }
+
+    /* Statistik */
+    .dosen-dashboard .dosen-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 15px;
+    }
+
+    .dosen-dashboard .dosen-stat-card {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 180px;
+        padding: 19px;
+        border: 1px solid var(--dosen-border);
+        border-radius: 5px;
+        background: #fff;
+        transition: border-color .15s ease;
+    }
+
+    .dosen-dashboard .dosen-stat-card:hover {
+        border-color: #c9dce9;
+    }
+
+    .dosen-dashboard .dosen-stat-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .dosen-dashboard .dosen-stat-label {
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+
+    .dosen-dashboard .dosen-stat-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 38px;
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    .dosen-dashboard .dosen-blue {
+        color: #2878c8;
+        background: #edf4ff;
+    }
+
+    .dosen-dashboard .dosen-orange {
+        color: #bd7b17;
+        background: #fff4e4;
+    }
+
+    .dosen-dashboard .dosen-green {
+        color: #0c9970;
+        background: #e8f7f0;
+    }
+
+    .dosen-dashboard .dosen-red {
+        color: #c23b45;
+        background: #ffeaec;
+    }
+
+    .dosen-dashboard .dosen-stat-value {
+        margin-bottom: 8px;
+        color: var(--dosen-text);
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
+    }
+
+    .dosen-dashboard .dosen-stat-description {
+        margin: auto 0 0;
+        color: var(--dosen-muted);
+        font-size: 11px;
+        line-height: 1.8;
+    }
+
+    /* Menu dosen */
+    .dosen-dashboard .dosen-menu-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .dosen-dashboard .dosen-menu-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        min-width: 0;
+        padding: 18px;
+        border: 1px solid var(--dosen-border);
+        border-radius: 5px;
+        background: #fff;
+    }
+
+    .dosen-dashboard .dosen-menu-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 42px;
+        width: 42px;
+        height: 42px;
+        border-radius: 5px;
+        background: #e7f3fa;
+        color: var(--dosen-blue);
+        font-size: 20px;
+    }
+
+    .dosen-dashboard .dosen-menu-content {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .dosen-dashboard .dosen-menu-content h4 {
+        margin: 1px 0 7px;
+        color: var(--dosen-text);
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.6;
+    }
+
+    .dosen-dashboard .dosen-menu-content p {
+        margin: 0 0 12px;
+        color: var(--dosen-muted);
+        font-size: 12px;
+        line-height: 1.8;
+    }
+
+    .dosen-dashboard .dosen-menu-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 8px;
+        border-radius: 3px;
+        background: #f1f3f7;
+        color: #727f93;
+        font-size: 10px;
+        font-weight: 600;
+    }
+
+    .dosen-dashboard .dosen-menu-status-available {
+        background: #e2f7ec;
+        color: #087443;
+    }
+
+    /* Informasi */
+    .dosen-dashboard .dosen-info {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 15px 17px;
+        border-left: 4px solid var(--dosen-blue);
+        border-radius: 3px;
+        background: #e8f3f9;
+        color: #506477;
+    }
+
+    .dosen-dashboard .dosen-info-icon {
+        flex: 0 0 auto;
+        color: var(--dosen-blue);
+        font-size: 17px;
+    }
+
+    .dosen-dashboard .dosen-info strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--dosen-text);
+        font-size: 12px;
+    }
+
+    .dosen-dashboard .dosen-info p {
+        margin: 0;
+        color: #596d80;
+        font-size: 12px;
+        line-height: 1.8;
+    }
+
+    /* Responsif */
+    @media (max-width: 1100px) {
+        .dosen-dashboard .dosen-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 750px) {
+        .dosen-dashboard .dosen-menu-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .dosen-dashboard .dosen-hero {
+            min-height: 0;
+            padding: 22px 19px;
+            gap: 12px;
         }
 
-        body {
-            font-family: "Segoe UI", Arial, sans-serif;
-            background: #f5f7fb;
-            color: #17233c;
-            font-size: 14px;
+        .dosen-dashboard .dosen-hero h2 {
+            font-size: 22px;
         }
 
-        .app {
-            min-height: 100vh;
-            display: grid;
-            grid-template-columns: 245px minmax(0, 1fr);
+        .dosen-dashboard .dosen-hero p {
+            font-size: 12px;
         }
 
-        /* SIDEBAR */
-        .sidebar {
-            background: #fff;
-            border-right: 1px solid #e8edf4;
-            padding: 28px 20px;
-            display: flex;
+        .dosen-dashboard .dosen-hero-icon {
+            flex-basis: 48px;
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            font-size: 25px;
+        }
+
+        .dosen-dashboard .dosen-panel {
+            padding: 16px;
+        }
+
+        .dosen-dashboard .dosen-stats-grid {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 12px;
+        }
+
+        .dosen-dashboard .dosen-stat-card {
+            min-height: 150px;
+            padding: 17px;
+        }
+
+        .dosen-dashboard .dosen-section-heading {
+            align-items: flex-start;
             flex-direction: column;
         }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 42px;
-        }
-
-        .brand-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 13px;
-            background: #2458db;
-            color: white;
-            display: grid;
-            place-items: center;
-            font-size: 22px;
-            font-weight: 800;
-        }
-
-        .brand-name {
-            font-size: 15px;
-            font-weight: 750;
-            letter-spacing: -0.4px;
-        }
-
-        .brand-subtitle {
-            color: #8792a6;
-            font-size: 11px;
-            margin-top: 4px;
-        }
-
-        .menu-label {
-            color: #99a3b5;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 1.3px;
-            margin: 0 0 12px 12px;
-        }
-
-        .menu-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 13px 14px;
-            border-radius: 10px;
-            color: #68758d;
-            text-decoration: none;
-            font-weight: 600;
-            margin-bottom: 7px;
-        }
-
-        .menu-link.active {
-            color: #2458db;
-            background: #edf3ff;
-        }
-
-        .menu-icon {
-            width: 22px;
-            text-align: center;
-            font-size: 17px;
-        }
-
-        .sidebar-bottom {
-            margin-top: auto;
-            padding-top: 30px;
-        }
-
-        .help-card {
-            background: #f5f7fb;
-            border-radius: 13px;
-            padding: 16px;
-            margin-bottom: 20px;
-        }
-
-        .help-card strong {
-            display: block;
-            font-size: 12px;
-            margin-bottom: 7px;
-        }
-
-        .help-card p {
-            color: #7c8799;
-            font-size: 11px;
-            line-height: 1.7;
-        }
-
-        .logout-form button {
+        .dosen-dashboard .dosen-section-heading .dosen-button {
             width: 100%;
-            padding: 12px;
-            border: 1px solid #e8edf4;
-            border-radius: 10px;
-            background: #fff;
-            color: #c04450;
-            font-size: 13px;
-            font-weight: 650;
-            cursor: pointer;
         }
+    }
 
-        .logout-form button:hover {
-            background: #fff1f2;
+    @media (prefers-reduced-motion: reduce) {
+        .dosen-dashboard .dosen-stat-card,
+        .dosen-dashboard .dosen-button {
+            transition: none;
         }
-
-        /* KONTEN UTAMA */
-        .main {
-            min-width: 0;
-            padding: 28px 36px 35px;
-        }
-
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-            padding-bottom: 27px;
-            border-bottom: 1px solid #e8edf4;
-            margin-bottom: 30px;
-        }
-
-        .breadcrumb {
-            color: #8a95a8;
-            font-size: 12px;
-            margin-bottom: 7px;
-        }
-
-        .topbar h2 {
-            font-size: 21px;
-            letter-spacing: -0.5px;
-        }
-
-        .profile {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-        }
-
-        .avatar {
-            width: 42px;
-            height: 42px;
-            flex-shrink: 0;
-            border-radius: 50%;
-            background: #e3ebff;
-            color: #2458db;
-            display: grid;
-            place-items: center;
-            font-weight: 750;
-        }
-
-        .profile-name {
-            font-weight: 700;
-            font-size: 12px;
-        }
-
-        .profile-role {
-            color: #8993a5;
-            font-size: 11px;
-            margin-top: 4px;
-        }
-
-        /* BANNER */
-        .welcome {
-            position: relative;
-            overflow: hidden;
-            min-height: 205px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 25px;
-            padding: 34px 36px;
-            margin-bottom: 30px;
-            border-radius: 20px;
-            background: linear-gradient(120deg, #2149b8, #3979ec);
-            color: white;
-        }
-
-        .welcome::after {
-            content: "";
-            position: absolute;
-            width: 240px;
-            height: 240px;
-            top: -90px;
-            right: 50px;
-            border: 35px solid rgba(255,255,255,0.08);
-            border-radius: 50%;
-        }
-
-        .welcome-content {
-            position: relative;
-            z-index: 1;
-            max-width: 620px;
-        }
-
-        .welcome-tag {
-            display: inline-block;
-            padding: 7px 11px;
-            margin-bottom: 17px;
-            border: 1px solid rgba(255,255,255,0.28);
-            border-radius: 20px;
-            background: rgba(255,255,255,0.1);
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.8px;
-        }
-
-        .welcome h1 {
-            font-size: clamp(23px, 3vw, 30px);
-            line-height: 1.35;
-            letter-spacing: -0.7px;
-            margin-bottom: 10px;
-        }
-
-        .welcome p {
-            color: #e0e9ff;
-            font-size: 13px;
-            line-height: 1.8;
-            max-width: 520px;
-        }
-
-        .welcome-art {
-            position: relative;
-            z-index: 1;
-            width: 110px;
-            height: 110px;
-            flex-shrink: 0;
-            display: grid;
-            place-items: center;
-            border: 1px solid rgba(255,255,255,0.22);
-            border-radius: 25px;
-            background: rgba(255,255,255,0.14);
-            font-size: 48px;
-        }
-
-        /* JUDUL BAGIAN */
-        .section-heading {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 17px;
-        }
-
-        .section-heading h3 {
-            font-size: 17px;
-            letter-spacing: -0.3px;
-        }
-
-        .section-heading p {
-            color: #919bad;
-            font-size: 11px;
-            margin-top: 5px;
-            line-height: 1.6;
-        }
-
-        /* KARTU RINGKASAN */
-        .cards {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 17px;
-            margin-bottom: 32px;
-        }
-
-        .stat-card {
-            min-width: 0;
-            padding: 21px;
-            border: 1px solid #e9edf4;
-            border-radius: 15px;
-            background: white;
-            box-shadow: 0 4px 15px rgba(30,55,90,0.025);
-        }
-
-        .stat-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .stat-label {
-            color: #778398;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .stat-icon {
-            width: 43px;
-            height: 43px;
-            display: grid;
-            place-items: center;
-            border-radius: 12px;
-            font-size: 21px;
-        }
-
-        .blue {
-            color: #3265dc;
-            background: #edf3ff;
-        }
-
-        .green {
-            color: #19966c;
-            background: #e8f8f1;
-        }
-
-        .orange {
-            color: #d68b22;
-            background: #fff4e3;
-        }
-
-        .stat-value {
-            font-size: 16px;
-            font-weight: 750;
-            margin-bottom: 8px;
-            overflow-wrap: anywhere;
-        }
-
-        .stat-description {
-            color: #97a0b0;
-            font-size: 11px;
-            line-height: 1.7;
-        }
-
-        /* PANEL */
-        .content-panel {
-            padding: 25px;
-            margin-bottom: 22px;
-            border: 1px solid #e9edf4;
-            border-radius: 16px;
-            background: white;
-        }
-
-        .panel-description {
-            color: #8c97a9;
-            font-size: 12px;
-            line-height: 1.8;
-            margin-top: -5px;
-            margin-bottom: 20px;
-        }
-
-        /* DAFTAR FUNGSI DOSEN */
-        .function-list {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
-        }
-
-        .function-item {
-            display: flex;
-            gap: 14px;
-            align-items: flex-start;
-            min-width: 0;
-            padding: 17px;
-            border: 1px solid #edf0f5;
-            border-radius: 13px;
-            background: #fff;
-        }
-
-        .function-icon {
-            width: 43px;
-            height: 43px;
-            flex-shrink: 0;
-            display: grid;
-            place-items: center;
-            border-radius: 12px;
-            background: #edf3ff;
-            font-size: 21px;
-        }
-
-        .function-item h4 {
-            font-size: 13px;
-            margin: 3px 0 7px;
-        }
-
-        .function-item p {
-            color: #8994a6;
-            font-size: 11px;
-            line-height: 1.7;
-        }
-
-        .status-label {
-            display: inline-block;
-            padding: 5px 8px;
-            margin-top: 10px;
-            border-radius: 7px;
-            background: #f1f3f7;
-            color: #727f93;
-            font-size: 10px;
-            font-weight: 650;
-        }
-
-        /* INFORMASI */
-        .info-box {
-            display: flex;
-            align-items: flex-start;
-            gap: 13px;
-            padding: 18px;
-            border: 1px solid #dfebff;
-            border-radius: 13px;
-            background: #eff5ff;
-        }
-
-        .info-icon {
-            font-size: 22px;
-        }
-
-        .info-box strong {
-            display: block;
-            color: #244d9f;
-            margin-bottom: 6px;
-            font-size: 12px;
-        }
-
-        .info-box p {
-            color: #60779f;
-            font-size: 11px;
-            line-height: 1.8;
-        }
-
-        .footer {
-            padding-top: 25px;
-            color: #9ba4b4;
-            text-align: center;
-            font-size: 11px;
-        }
-
-        /* RESPONSIVE */
-        @media (max-width: 1000px) {
-            .app {
-                grid-template-columns: 205px minmax(0, 1fr);
-            }
-
-            .main {
-                padding: 25px 22px;
-            }
-
-            .cards {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 650px) {
-            .app {
-                display: block;
-            }
-
-            .sidebar {
-                padding: 17px 20px;
-                border-right: none;
-                border-bottom: 1px solid #e8edf4;
-            }
-
-            .brand {
-                margin-bottom: 17px;
-            }
-
-            .menu-label,
-            .sidebar-bottom {
-                display: none;
-            }
-
-            .menu-link {
-                width: fit-content;
-                margin-bottom: 0;
-            }
-
-            .main {
-                padding: 22px 16px;
-            }
-
-            .topbar {
-                align-items: flex-start;
-            }
-
-            .profile > div:last-child {
-                display: none;
-            }
-
-            .welcome {
-                padding: 27px 23px;
-            }
-
-            .welcome-art {
-                display: none;
-            }
-
-            .function-list {
-                grid-template-columns: 1fr;
-            }
-
-            .content-panel {
-                padding: 20px;
-            }
-        }
-    </style>
-</head>
-
-<body>
-    <div class="app">
-
-        <!-- SIDEBAR -->
-        <aside class="sidebar">
-            <div class="brand">
-                <div class="brand-icon">M</div>
-
-                <div>
-                    <div class="brand-name">Monitoring Magang</div>
-                    <div class="brand-subtitle">Portal PDLK IT Del</div>
-                </div>
-            </div>
-
-            <div class="menu-label">MENU DOSEN</div>
-
-            <a href="{{ route('dashboard') }}"
-               class="menu-link active">
-                <span class="menu-icon">▦</span>
-                <span>Dashboard</span>
-            </a>
-
-            <div class="sidebar-bottom">
-                <div class="help-card">
-                    <strong>Portal Dosen</strong>
-                    <p>
-                        Pusat informasi untuk mendukung pemantauan
-                        dan evaluasi kegiatan PDLK mahasiswa.
-                    </p>
-                </div>
-
-                <form method="POST"
-                      action="{{ route('logout') }}"
-                      class="logout-form">
-                    @csrf
-                    <button type="submit">↪ &nbsp; Logout</button>
-                </form>
-            </div>
-        </aside>
-
-        <!-- KONTEN UTAMA -->
-        <main class="main">
-
-            <header class="topbar">
-                <div>
-                    <div class="breadcrumb">Portal / Dashboard</div>
-                    <h2>Dashboard Dosen</h2>
-                </div>
-
-                <div class="profile">
-                    <div class="avatar">
-                        {{ strtoupper(substr(session('cis_user')['username'] ?? 'D', 0, 2)) }}
-                    </div>
-
-                    <div>
-                        <div class="profile-name">
-                            {{ session('cis_user')['username'] ?? 'Dosen' }}
-                        </div>
-                        <div class="profile-role">Dosen Pembimbing</div>
-                    </div>
-                </div>
-            </header>
-
-            <!-- BANNER SAMBUTAN -->
-            <section class="welcome">
-                <div class="welcome-content">
-                    <span class="welcome-tag">
-                        PORTAL DOSEN PEMBIMBING
-                    </span>
-
-                    <h1>
-                        Selamat datang,
-                        {{ session('cis_user')['username'] ?? 'Bapak/Ibu Dosen' }}!
-                    </h1>
-
-                    <p>
-                        Kelola dan pantau perkembangan kegiatan PDLK
-                        mahasiswa melalui satu portal terintegrasi.
-                        Informasi akan ditampilkan sesuai modul yang tersedia.
-                    </p>
-                </div>
-
-                <div class="welcome-art" aria-hidden="true">
-                    👨‍🏫
-                </div>
-            </section>
-
-            <!-- RINGKASAN -->
-            <section>
-                <div class="section-heading">
-                    <div>
-                        <h3>Ringkasan Pembimbingan</h3>
-                        <p>Informasi umum tugas pembimbingan Anda</p>
-                    </div>
-                </div>
-
-                <div class="cards">
-
-                    <article class="stat-card">
-                        <div class="stat-top">
-                            <span class="stat-label">
-                                Mahasiswa Bimbingan
-                            </span>
-
-                            <div class="stat-icon blue">♙</div>
-                        </div>
-
-                        <div class="stat-value">Belum tersedia</div>
-
-                        <p class="stat-description">
-                            Data mahasiswa bimbingan akan ditampilkan
-                            setelah modul pengelolaan PDLK terhubung.
-                        </p>
-                    </article>
-
-                    <article class="stat-card">
-                        <div class="stat-top">
-                            <span class="stat-label">
-                                Aktivitas Mahasiswa
-                            </span>
-
-                            <div class="stat-icon green">▤</div>
-                        </div>
-
-                        <div class="stat-value">Belum tersedia</div>
-
-                        <p class="stat-description">
-                            Ringkasan aktivitas mahasiswa akan ditampilkan
-                            setelah modul monitoring dikembangkan.
-                        </p>
-                    </article>
-
-                    <article class="stat-card">
-                        <div class="stat-top">
-                            <span class="stat-label">
-                                Penilaian
-                            </span>
-
-                            <div class="stat-icon orange">☆</div>
-                        </div>
-
-                        <div class="stat-value">Belum tersedia</div>
-
-                        <p class="stat-description">
-                            Informasi penilaian akan tersedia setelah
-                            modul evaluasi terhubung.
-                        </p>
-                    </article>
-
-                </div>
-            </section>
-
-            <!-- FUNGSI DOSEN -->
-            <section class="content-panel">
-                <div class="section-heading">
-                    <div>
-                        <h3>Fungsi Pembimbingan</h3>
-                        <p>Ruang lingkup pekerjaan dosen dalam sistem</p>
-                    </div>
-                </div>
-
-                <p class="panel-description">
-                    Berikut fungsi utama yang disiapkan untuk mendukung
-                    pemantauan kegiatan PDLK mahasiswa.
+    }
+</style>
+
+<div class="dosen-dashboard">
+
+    {{-- Banner sambutan --}}
+    <section class="dosen-hero">
+        <div class="dosen-hero-content">
+
+            <span class="dosen-hero-tag">
+                PORTAL DOSEN PEMBIMBING
+            </span>
+
+            <h2>
+                Selamat datang, {{ $namaDosen }}!
+            </h2>
+
+            <p>
+                Kelola pendaftaran dan dukung pemantauan kegiatan
+                Pembelajaran di Luar Kampus mahasiswa melalui satu portal.
+            </p>
+
+        </div>
+
+        <div class="dosen-hero-icon" aria-hidden="true">
+            👨‍🏫
+        </div>
+    </section>
+
+    {{-- Ringkasan pendaftaran --}}
+    <section class="dosen-panel">
+
+        <div class="dosen-section-heading">
+            <div>
+                <h3>Ringkasan Pendaftaran PDLK</h3>
+                <p>
+                    Jumlah pengajuan mahasiswa berdasarkan status saat ini.
                 </p>
+            </div>
 
-                <div class="function-list">
+            <a
+                href="{{ route('registration.index') }}"
+                class="dosen-button"
+            >
+                Kelola Pendaftaran →
+            </a>
+        </div>
 
-                    <article class="function-item">
-                        <div class="function-icon">♙</div>
+        <div class="dosen-stats-grid">
 
-                        <div>
-                            <h4>Daftar Mahasiswa Bimbingan</h4>
+            @foreach ($stats as $stat)
+                <article class="dosen-stat-card">
 
-                            <p>
-                                Melihat informasi mahasiswa yang menjadi
-                                tanggung jawab pembimbing.
-                            </p>
+                    <div class="dosen-stat-top">
+                        <span class="dosen-stat-label">
+                            {{ $stat['label'] }}
+                        </span>
 
-                            <span class="status-label">
-                                Belum terhubung
-                            </span>
-                        </div>
-                    </article>
+                        <span
+                            class="dosen-stat-icon {{ $stat['class'] }}"
+                            aria-hidden="true"
+                        >
+                            {{ $stat['icon'] }}
+                        </span>
+                    </div>
 
-                    <article class="function-item">
-                        <div class="function-icon">◷</div>
+                    <div class="dosen-stat-value">
+                        {{ $stat['value'] }}
+                    </div>
 
-                        <div>
-                            <h4>Monitoring Aktivitas</h4>
-
-                            <p>
-                                Memantau perkembangan dan catatan aktivitas
-                                mahasiswa selama menjalani PDLK.
-                            </p>
-
-                            <span class="status-label">
-                                Belum terhubung
-                            </span>
-                        </div>
-                    </article>
-
-                    <article class="function-item">
-                        <div class="function-icon">▤</div>
-
-                        <div>
-                            <h4>Pemeriksaan Laporan</h4>
-
-                            <p>
-                                Memeriksa laporan perkembangan dan laporan
-                                akhir mahasiswa sesuai ketentuan kegiatan.
-                            </p>
-
-                            <span class="status-label">
-                                Belum terhubung
-                            </span>
-                        </div>
-                    </article>
-
-                    <article class="function-item">
-                        <div class="function-icon">☆</div>
-
-                        <div>
-                            <h4>Penilaian Magang</h4>
-
-                            <p>
-                                Melakukan evaluasi dan memberikan penilaian
-                                sesuai kewenangan dosen pembimbing.
-                            </p>
-
-                            <span class="status-label">
-                                Belum terhubung
-                            </span>
-                        </div>
-                    </article>
-
-                </div>
-            </section>
-
-            <!-- INFORMASI -->
-            <section class="info-box">
-                <div class="info-icon">ℹ️</div>
-
-                <div>
-                    <strong>Informasi Sistem</strong>
-
-                    <p>
-                        Tampilan dashboard dosen sudah disiapkan.
-                        Data mahasiswa bimbingan, aktivitas, laporan,
-                        dan penilaian belum diambil dari backend.
-                        Fungsi tersebut akan dihubungkan pada tahap
-                        pengembangan modul berikutnya.
+                    <p class="dosen-stat-description">
+                        {{ $stat['description'] }}
                     </p>
-                </div>
-            </section>
 
-            <footer class="footer">
-                Monitoring Magang · Sistem Informasi UPT PP-ESTEM
-            </footer>
+                </article>
+            @endforeach
 
-        </main>
-    </div>
-</body>
-</html>
+        </div>
+    </section>
+
+    {{-- Menu dosen --}}
+    <section class="dosen-panel">
+
+        <div class="dosen-section-heading">
+            <div>
+                <h3>Menu Dosen</h3>
+                <p>
+                    Akses fungsi pengelolaan kegiatan PDLK sesuai
+                    ketersediaan modul.
+                </p>
+            </div>
+        </div>
+
+        <div class="dosen-menu-grid">
+
+            @foreach ($menuDosen as $menu)
+                <article class="dosen-menu-card">
+
+                    <div class="dosen-menu-icon" aria-hidden="true">
+                        {{ $menu['ikon'] }}
+                    </div>
+
+                    <div class="dosen-menu-content">
+
+                        <h4>{{ $menu['judul'] }}</h4>
+
+                        <p>{{ $menu['deskripsi'] }}</p>
+
+                        @if ($menu['tersedia'])
+                            <a
+                                href="{{ route('registration.index') }}"
+                                class="dosen-button"
+                            >
+                                Buka Menu →
+                            </a>
+                        @else
+                            <span class="dosen-menu-status">
+                                {{ $menu['status'] }}
+                            </span>
+                        @endif
+
+                    </div>
+
+                </article>
+            @endforeach
+
+        </div>
+    </section>
+
+    {{-- Informasi --}}
+    <section class="dosen-info" role="note">
+
+        <span class="dosen-info-icon" aria-hidden="true">ⓘ</span>
+
+        <div>
+            <strong>Informasi Sistem</strong>
+
+            <p>
+                Statistik pendaftaran ditampilkan berdasarkan data yang
+                tersedia pada sistem. Menu monitoring mahasiswa, laporan,
+                dan penilaian akan diaktifkan setelah modul terkait selesai
+                dikembangkan.
+            </p>
+        </div>
+
+    </section>
+
+</div>
+
+@endsection

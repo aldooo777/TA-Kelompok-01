@@ -35,8 +35,5 @@ return [
         ],
     ],
 
-    'registration' => [
-    'url' => env('REGISTRATION_SERVICE_URL'),
-    ],
 
 ];

@@ -1,682 +1,652 @@
 
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Mahasiswa | Monitoring Magang</title>
+@extends('layouts.pdlk')
 
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+@section('title', 'Dashboard Mahasiswa | Monitoring PDLK')
+@section('breadcrumb', 'Portal / Dashboard')
+@section('page-title', 'Dashboard Mahasiswa')
+
+@section('content')
+
+<style>
+    /* Semua gaya dibatasi pada Dashboard Mahasiswa */
+    .student-dashboard {
+        --student-blue: #348db8;
+        --student-blue-dark: #267ba5;
+        --student-text: #26364d;
+        --student-muted: #718096;
+        --student-border: #e1e7ef;
+        --student-bg-soft: #f5f8fc;
+        color: var(--student-text);
+    }
+
+    .student-dashboard * {
+        box-sizing: border-box;
+    }
+
+    /* Sambutan */
+    .student-dashboard .student-hero {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 28px;
+        min-height: 205px;
+        padding: 32px;
+        margin-bottom: 28px;
+        overflow: hidden;
+        border-radius: 5px;
+        background: linear-gradient(115deg, #287eaa, #3699c3);
+        color: #fff;
+    }
+
+    .student-dashboard .student-hero::before {
+        position: absolute;
+        top: -100px;
+        right: 65px;
+        width: 270px;
+        height: 270px;
+        border: 28px solid rgba(255, 255, 255, .07);
+        border-radius: 50%;
+        content: "";
+        pointer-events: none;
+    }
+
+    .student-dashboard .student-hero-content {
+        position: relative;
+        z-index: 1;
+        max-width: 740px;
+    }
+
+    .student-dashboard .student-hero-tag {
+        display: inline-block;
+        padding: 6px 11px;
+        margin-bottom: 13px;
+        border: 1px solid rgba(255, 255, 255, .35);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, .12);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .4px;
+    }
+
+    .student-dashboard .student-hero h2 {
+        margin: 0 0 10px;
+        color: #fff;
+        font-size: clamp(23px, 2.3vw, 30px);
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
+    .student-dashboard .student-hero p {
+        max-width: 650px;
+        margin: 0;
+        color: rgba(255, 255, 255, .94);
+        font-size: 13px;
+        line-height: 1.9;
+    }
+
+    .student-dashboard .student-hero-icon {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 88px;
+        width: 88px;
+        height: 88px;
+        border: 1px solid rgba(255, 255, 255, .25);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, .13);
+        font-size: 43px;
+    }
+
+    /* Panel umum */
+    .student-dashboard .student-panel {
+        padding: 24px;
+        margin-bottom: 26px;
+        border: 1px solid var(--student-border);
+        border-radius: 5px;
+        background: #fff;
+    }
+
+    .student-dashboard .student-section-heading {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .student-dashboard .student-section-heading h2 {
+        margin: 0 0 5px;
+        color: var(--student-text);
+        font-size: 19px;
+        font-weight: 600;
+        line-height: 1.5;
+    }
+
+    .student-dashboard .student-section-heading p {
+        margin: 0;
+        color: var(--student-muted);
+        font-size: 12px;
+        line-height: 1.8;
+    }
+
+    /* Kartu ringkasan */
+    .student-dashboard .student-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        align-items: stretch;
+    }
+
+    .student-dashboard .student-card {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 225px;
+        padding: 20px;
+        border: 1px solid var(--student-border);
+        border-radius: 5px;
+        background: #fff;
+        transition: border-color .18s ease, box-shadow .18s ease;
+    }
+
+    .student-dashboard .student-card:hover {
+        border-color: #c8dbea;
+        box-shadow: 0 4px 14px rgba(38, 65, 95, .05);
+    }
+
+    .student-dashboard .student-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .student-dashboard .student-card-label {
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+
+    .student-dashboard .student-card-icon {
+        display: flex;
+        flex: 0 0 40px;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 9px;
+        font-size: 19px;
+    }
+
+    .student-dashboard .student-icon-blue {
+        color: #2878c8;
+        background: #edf4ff;
+    }
+
+    .student-dashboard .student-icon-green {
+        color: #0c9970;
+        background: #e8f7f0;
+    }
+
+    .student-dashboard .student-icon-orange {
+        color: #cc861b;
+        background: #fff4e4;
+    }
+
+    .student-dashboard .student-card h3 {
+        margin: 0 0 10px;
+        color: var(--student-text);
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+    }
+
+    .student-dashboard .student-card-description {
+        margin: 0;
+        color: var(--student-muted);
+        font-size: 12px;
+        line-height: 1.8;
+        overflow-wrap: anywhere;
+    }
+
+    .student-dashboard .student-status {
+        display: inline-flex;
+        align-items: center;
+        align-self: flex-start;
+        width: fit-content;
+        max-width: 100%;
+        padding: 6px 11px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+    }
+
+    .student-dashboard .student-status-menunggu {
+        color: #8d6207;
+        background: #fff2cf;
+    }
+
+    .student-dashboard .student-status-diterima {
+        color: #087443;
+        background: #e2f7ec;
+    }
+
+    .student-dashboard .student-status-ditolak {
+        color: #b4232d;
+        background: #ffeaec;
+    }
+
+    .student-dashboard .student-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        align-self: flex-start;
+        gap: 7px;
+        max-width: 100%;
+        min-height: 38px;
+        padding: 9px 12px;
+        margin-top: auto;
+        border: 1px solid var(--student-blue);
+        border-radius: 4px;
+        background: var(--student-blue);
+        color: #fff;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.5;
+        text-align: center;
+        text-decoration: none;
+        overflow-wrap: anywhere;
+        transition: background .15s ease, border-color .15s ease;
+    }
+
+    .student-dashboard .student-action:hover {
+        border-color: var(--student-blue-dark);
+        background: var(--student-blue-dark);
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .student-dashboard .student-action-spaced {
+        margin-top: 18px;
+    }
+
+    .student-dashboard .student-card .student-action {
+        margin-top: 18px;
+    }
+
+    .student-dashboard .student-card .student-card-description + .student-action {
+        margin-top: auto;
+        transform: translateY(0);
+    }
+
+    .student-dashboard .student-card .student-card-description {
+        margin-bottom: 18px;
+    }
+
+    .student-dashboard .student-card .student-action {
+        margin-top: auto;
+    }
+
+    /* Alur kegiatan */
+    .student-dashboard .student-flow-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .student-dashboard .student-flow-card {
+        min-width: 0;
+        padding: 18px;
+        border: 1px solid var(--student-border);
+        border-radius: 5px;
+        background: #fff;
+    }
+
+    .student-dashboard .student-flow-number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 33px;
+        height: 33px;
+        margin-bottom: 16px;
+        border-radius: 50%;
+        background: #eaf3fb;
+        color: var(--student-blue);
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .student-dashboard .student-flow-card h3 {
+        margin: 0 0 8px;
+        color: var(--student-text);
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.5;
+    }
+
+    .student-dashboard .student-flow-card p {
+        margin: 0;
+        color: var(--student-muted);
+        font-size: 12px;
+        line-height: 1.8;
+        overflow-wrap: anywhere;
+    }
+
+    .student-dashboard .student-flow-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 20px;
+        padding-top: 18px;
+        border-top: 1px solid #edf0f4;
+    }
+
+    .student-dashboard .student-flow-footer p {
+        margin: 0;
+        color: var(--student-muted);
+        font-size: 12px;
+        line-height: 1.8;
+    }
+
+    @media (max-width: 1050px) {
+        .student-dashboard .student-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        body {
-            font-family: "Segoe UI", Arial, sans-serif;
-            background: #f5f7fb;
-            color: #17233c;
-            font-size: 14px;
+        .student-dashboard .student-flow-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+    }
 
-        .app {
-            min-height: 100vh;
-            display: grid;
-            grid-template-columns: 245px minmax(0, 1fr);
-        }
-
-        /* SIDEBAR */
-        .sidebar {
-            background: #ffffff;
-            border-right: 1px solid #e8edf4;
-            padding: 28px 20px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 42px;
-        }
-
-        .brand-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 13px;
-            background: #2458db;
-            color: white;
-            display: grid;
-            place-items: center;
-            font-size: 23px;
-            font-weight: 800;
-        }
-
-        .brand-name {
-            font-size: 16px;
-            font-weight: 750;
-            letter-spacing: -0.4px;
-        }
-
-        .brand-subtitle {
-            color: #8792a6;
-            font-size: 11px;
-            margin-top: 4px;
-        }
-
-        .menu-label {
-            color: #99a3b5;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 1.3px;
-            margin: 0 0 12px 12px;
-        }
-
-        .menu-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 13px 14px;
-            border-radius: 10px;
-            color: #68758d;
-            text-decoration: none;
-            font-weight: 600;
-            margin-bottom: 7px;
-        }
-
-        .menu-link.active {
-            color: #2458db;
-            background: #edf3ff;
-        }
-
-        .menu-icon {
-            width: 22px;
-            text-align: center;
-            font-size: 17px;
-        }
-
-        .sidebar-bottom {
-            margin-top: auto;
-            padding-top: 30px;
-        }
-
-        .help-card {
-            border-radius: 13px;
-            background: #f5f7fb;
-            padding: 16px;
-            margin-bottom: 20px;
-        }
-
-        .help-card strong {
-            display: block;
-            font-size: 12px;
-            margin-bottom: 7px;
-        }
-
-        .help-card p {
-            color: #7c8799;
-            font-size: 11px;
-            line-height: 1.7;
-        }
-
-        .logout-form button {
-            border: 1px solid #e8edf4;
-            color: #c04450;
-            background: white;
-            padding: 12px;
-            width: 100%;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 650;
-            cursor: pointer;
-        }
-
-        .logout-form button:hover {
-            background: #fff1f2;
-        }
-
-        /* KONTEN */
-        .main {
-            min-width: 0;
-            padding: 28px 36px 35px;
-        }
-
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            padding-bottom: 27px;
-            border-bottom: 1px solid #e8edf4;
-            margin-bottom: 30px;
-        }
-
-        .breadcrumb {
-            color: #8a95a8;
-            font-size: 12px;
-            margin-bottom: 7px;
-        }
-
-        .topbar h2 {
-            font-size: 21px;
-            letter-spacing: -0.5px;
-        }
-
-        .profile {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-        }
-
-        .avatar {
-            width: 42px;
-            height: 42px;
-            background: #e3ebff;
-            color: #2458db;
-            border-radius: 50%;
-            display: grid;
-            place-items: center;
-            font-weight: 750;
-        }
-
-        .profile-name {
-            font-weight: 700;
-            font-size: 12px;
-        }
-
-        .profile-role {
-            color: #8993a5;
-            font-size: 11px;
-            margin-top: 4px;
-        }
-
-        .welcome {
-            position: relative;
-            overflow: hidden;
-            border-radius: 20px;
-            padding: 34px 36px;
-            background: linear-gradient(120deg, #2149b8, #3979ec);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 25px;
-            min-height: 205px;
-            margin-bottom: 30px;
-        }
-
-        .welcome::after {
-            content: "";
-            width: 240px;
-            height: 240px;
-            border: 35px solid rgba(255,255,255,0.08);
-            border-radius: 50%;
-            position: absolute;
-            right: 50px;
-            top: -90px;
-        }
-
-        .welcome-content {
-            position: relative;
-            z-index: 1;
-            max-width: 570px;
-        }
-
-        .welcome-tag {
-            display: inline-block;
-            padding: 7px 11px;
-            border: 1px solid rgba(255,255,255,0.28);
-            background: rgba(255,255,255,0.1);
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.8px;
-            margin-bottom: 17px;
-        }
-
-        .welcome h1 {
-            font-size: clamp(23px, 3vw, 30px);
-            line-height: 1.3;
-            letter-spacing: -0.7px;
-            margin-bottom: 10px;
-        }
-
-        .welcome p {
-            color: #e0e9ff;
-            font-size: 13px;
-            line-height: 1.8;
-            max-width: 500px;
-        }
-
-        .welcome-art {
-            z-index: 1;
-            flex-shrink: 0;
-            width: 110px;
-            height: 110px;
-            border-radius: 25px;
-            background: rgba(255,255,255,0.14);
-            border: 1px solid rgba(255,255,255,0.22);
-            display: grid;
-            place-items: center;
-            font-size: 48px;
-        }
-
-        .section-heading {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 17px;
-        }
-
-        .section-heading h3 {
-            font-size: 17px;
-            letter-spacing: -0.3px;
-        }
-
-        .section-heading p {
-            color: #919bad;
-            font-size: 11px;
-            margin-top: 5px;
-        }
-
-        .cards {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 17px;
-            margin-bottom: 32px;
-        }
-
-        .stat-card {
-            padding: 21px;
-            background: white;
-            border: 1px solid #e9edf4;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(30, 55, 90, 0.025);
-            min-width: 0;
-        }
-
-        .stat-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .stat-icon {
-            width: 43px;
-            height: 43px;
-            border-radius: 12px;
-            display: grid;
-            place-items: center;
-            font-size: 21px;
-        }
-
-        .blue {
-            color: #3265dc;
-            background: #edf3ff;
-        }
-
-        .green {
-            color: #19966c;
-            background: #e8f8f1;
-        }
-
-        .orange {
-            color: #d68b22;
-            background: #fff4e3;
-        }
-
-        .stat-label {
-            color: #778398;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .stat-value {
-            font-size: 16px;
-            font-weight: 750;
-            margin-bottom: 8px;
-        }
-
-        .stat-description {
-            color: #97a0b0;
-            font-size: 11px;
-            line-height: 1.7;
-        }
-
-        .content-panel {
-            background: white;
-            border: 1px solid #e9edf4;
-            border-radius: 16px;
-            padding: 25px;
-            margin-bottom: 22px;
-        }
-
-        .steps {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 12px;
-            margin-top: 25px;
-        }
-
-        .step {
-            position: relative;
-            min-width: 0;
-        }
-
-        .step-number {
-            width: 37px;
-            height: 37px;
-            border-radius: 50%;
-            background: #edf3ff;
-            color: #3265dc;
-            display: grid;
-            place-items: center;
-            font-weight: 750;
-            margin-bottom: 13px;
-        }
-
-        .step h4 {
-            font-size: 12px;
-            margin-bottom: 6px;
-        }
-
-        .step p {
-            color: #96a0b1;
-            font-size: 10px;
-            line-height: 1.7;
-        }
-
-        .info-box {
-            display: flex;
+    @media (max-width: 650px) {
+        .student-dashboard .student-hero {
             align-items: flex-start;
-            gap: 13px;
-            background: #eff5ff;
-            border: 1px solid #dfebff;
-            padding: 18px;
-            border-radius: 13px;
+            min-height: auto;
+            padding: 23px 20px;
+            gap: 14px;
         }
 
-        .info-icon {
+        .student-dashboard .student-hero h2 {
             font-size: 22px;
         }
 
-        .info-box strong {
-            display: block;
-            color: #244d9f;
-            margin-bottom: 6px;
+        .student-dashboard .student-hero p {
             font-size: 12px;
         }
 
-        .info-box p {
-            color: #60779f;
-            line-height: 1.8;
-            font-size: 11px;
+        .student-dashboard .student-hero-icon {
+            flex-basis: 54px;
+            width: 54px;
+            height: 54px;
+            border-radius: 10px;
+            font-size: 28px;
         }
 
-        .footer {
-            color: #9ba4b4;
-            text-align: center;
-            font-size: 11px;
-            padding-top: 12px;
+        .student-dashboard .student-panel {
+            padding: 17px;
         }
 
-        @media (max-width: 1000px) {
-            .app {
-                grid-template-columns: 205px minmax(0, 1fr);
-            }
-
-            .main {
-                padding: 25px 22px;
-            }
-
-            .cards {
-                grid-template-columns: 1fr;
-            }
-
-            .stat-card {
-                padding: 17px;
-            }
+        .student-dashboard .student-summary-grid,
+        .student-dashboard .student-flow-grid {
+            grid-template-columns: minmax(0, 1fr);
         }
 
-        @media (max-width: 650px) {
-            .app {
-                display: block;
-            }
-
-            .sidebar {
-                padding: 17px 20px;
-                border-right: none;
-                border-bottom: 1px solid #e8edf4;
-            }
-
-            .brand {
-                margin-bottom: 17px;
-            }
-
-            .menu-label,
-            .sidebar-bottom {
-                display: none;
-            }
-
-            .menu-link {
-                width: fit-content;
-                margin-bottom: 0;
-            }
-
-            .main {
-                padding: 22px 16px;
-            }
-
-            .topbar {
-                align-items: flex-start;
-            }
-
-            .profile > div:last-child {
-                display: none;
-            }
-
-            .welcome {
-                padding: 27px 23px;
-            }
-
-            .welcome-art {
-                display: none;
-            }
-
-            .steps {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                row-gap: 25px;
-            }
-
-            .content-panel {
-                padding: 20px;
-            }
+        .student-dashboard .student-card {
+            min-height: 0;
+            padding: 18px;
         }
-    </style>
-</head>
 
-<body>
-    <div class="app">
+        .student-dashboard .student-section-heading {
+            flex-direction: column;
+        }
 
-        <!-- SIDEBAR -->
-        <aside class="sidebar">
-            <div class="brand">
-                <div class="brand-icon">M</div>
-                <div>
-                    <div class="brand-name">Monitoring Magang</div>
-                    <div class="brand-subtitle">Portal PDLK IT Del</div>
-                </div>
+        .student-dashboard .student-flow-footer {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .student-dashboard .student-flow-footer .student-action {
+            align-self: stretch;
+            width: 100%;
+            box-sizing: border-box;
+        }
+    }
+</style>
+
+<div class="student-dashboard">
+
+    {{-- SAMBUTAN --}}
+    <section class="student-hero">
+        <div class="student-hero-content">
+            <span class="student-hero-tag">
+                PORTAL MAHASISWA PDLK
+            </span>
+
+            <h2>
+                Selamat datang,
+                {{ session('cis_user')['username'] ?? 'Mahasiswa' }}!
+            </h2>
+
+            <p>
+                Kelola kegiatan Pembelajaran di Luar Kampus melalui satu portal.
+                Pantau status pendaftaran, monitoring, dan laporan kegiatan Anda.
+            </p>
+        </div>
+
+        <div class="student-hero-icon" aria-hidden="true">
+            🎓
+        </div>
+    </section>
+
+    {{-- RINGKASAN --}}
+    <section class="student-panel">
+
+        <div class="student-section-heading">
+            <div>
+                <h2>Ringkasan</h2>
+                <p>Informasi utama kegiatan PDLK Anda.</p>
             </div>
+        </div>
 
-            <div class="menu-label">MENU UTAMA</div>
+        <div class="student-summary-grid">
 
-            <a href="{{ route('dashboard') }}" class="menu-link active">
-                <span class="menu-icon">▦</span>
-                <span>Dashboard</span>
+            {{-- STATUS PENDAFTARAN --}}
+            <article class="student-card">
+                <div class="student-card-top">
+                    <span class="student-card-label">
+                        Status Pendaftaran
+                    </span>
+
+                    <div class="student-card-icon student-icon-blue"
+                         aria-hidden="true">
+                        ◷
+                    </div>
+                </div>
+
+                @if ($latestRegistration)
+                    @php
+                        $registrationStatus = strtolower(
+                            (string) ($latestRegistration->status ?? '')
+                        );
+
+                        $statusClass = match ($registrationStatus) {
+                            'menunggu' => 'student-status-menunggu',
+                            'diterima' => 'student-status-diterima',
+                            'ditolak' => 'student-status-ditolak',
+                            default => '',
+                        };
+
+                        $statusLabel = match ($registrationStatus) {
+                            'menunggu' => 'Menunggu',
+                            'diterima' => 'Diterima',
+                            'ditolak' => 'Ditolak',
+                            default => 'Tidak diketahui',
+                        };
+                    @endphp
+
+                    <div>
+                        <span class="student-status {{ $statusClass }}">
+                            {{ $statusLabel }}
+                        </span>
+                    </div>
+
+
+<p class="student-card-description">
+    Pendaftaran terbaru untuk
+    <strong>{{ $latestRegistration->tempat_magang ?? 'Tempat PDLK' }}</strong>.@if ($registrationStatus === 'diterima')
+        Pendaftaran Anda telah diterima.
+    @elseif ($registrationStatus === 'ditolak')
+        Pendaftaran Anda ditolak. Anda dapat melihat pilihan PDLK lainnya.
+    @else
+        Pendaftaran Anda masih menunggu persetujuan.
+    @endif
+</p>
+
+
+                    @if ($registrationStatus === 'diterima')
+                        <a href="{{ route('monitoring.index') }}"
+                           class="student-action">
+                            Buka Monitoring →
+                        </a>
+                    @elseif ($registrationStatus === 'ditolak')
+                        <a href="{{ route('pdlk.index') }}"
+                           class="student-action">
+                            Lihat Pilihan PDLK →
+                        </a>
+                    @else
+                        <a href="{{ route('pdlk.index') }}"
+                           class="student-action">
+                            Lihat Daftar PDLK →
+                        </a>
+                    @endif
+
+                @else
+                    <span class="student-status student-status-menunggu">
+                        Belum mendaftar
+                    </span>
+
+                    <p class="student-card-description">
+                        Anda belum memiliki pendaftaran PDLK yang tercatat di sistem.
+                    </p>
+
+                    <a href="{{ route('pdlk.index') }}"
+                       class="student-action">
+                        Daftar PDLK →
+                    </a>
+                @endif
+            </article>
+
+            {{-- AKTIVITAS --}}
+            <article class="student-card">
+                <div class="student-card-top">
+                    <span class="student-card-label">Aktivitas</span>
+
+                    <div class="student-card-icon student-icon-green"
+                         aria-hidden="true">
+                        ▤
+                    </div>
+                </div>
+
+                <h3>Dalam pengembangan</h3>
+
+                <p class="student-card-description">
+                    Ringkasan kegiatan dan progres monitoring akan tersedia
+                    setelah modul aktivitas dikembangkan.
+                </p>
+            </article>
+
+            {{-- LAPORAN --}}
+            <article class="student-card">
+                <div class="student-card-top">
+                    <span class="student-card-label">Laporan</span>
+
+                    <div class="student-card-icon student-icon-orange"
+                         aria-hidden="true">
+                        ▧
+                    </div>
+                </div>
+
+                <h3>Dalam pengembangan</h3>
+
+                <p class="student-card-description">
+                    Informasi dan hasil laporan PDLK akan ditampilkan
+                    setelah modul pelaporan tersedia.
+                </p>
+            </article>
+
+        </div>
+    </section>
+
+    {{-- ALUR KEGIATAN --}}
+    <section class="student-panel">
+
+        <div class="student-section-heading">
+            <div>
+                <h2>Alur Kegiatan PDLK</h2>
+                <p>Tahapan yang dilalui mahasiswa selama mengikuti PDLK.</p>
+            </div>
+        </div>
+
+        <div class="student-flow-grid">
+
+            <article class="student-flow-card">
+                <div class="student-flow-number">1</div>
+                <h3>Pendaftaran</h3>
+                <p>
+                    Pilih jenis kegiatan PDLK dan ajukan pendaftaran.
+                </p>
+            </article>
+
+            <article class="student-flow-card">
+                <div class="student-flow-number">2</div>
+                <h3>Seleksi</h3>
+                <p>
+                    Pengelola memeriksa pendaftaran dan menentukan status.
+                </p>
+            </article>
+
+            <article class="student-flow-card">
+                <div class="student-flow-number">3</div>
+                <h3>Pelaksanaan</h3>
+                <p>
+                    Jalankan kegiatan dan isi monitoring sesuai periode.
+                </p>
+            </article>
+
+            <article class="student-flow-card">
+                <div class="student-flow-number">4</div>
+                <h3>Evaluasi</h3>
+                <p>
+                    Lengkapi evaluasi akhir sesuai ketentuan kegiatan PDLK.
+                </p>
+            </article>
+
+        </div>
+
+        <div class="student-flow-footer">
+            <p>
+                Siap mengelola kegiatan PDLK Anda?
+            </p>
+
+            <a href="{{ route('pdlk.index') }}"
+               class="student-action">
+                Buka Daftar PDLK →
             </a>
+        </div>
 
-            <div class="sidebar-bottom">
-                <div class="help-card">
-                    <strong>Portal Mahasiswa</strong>
-                    <p>
-                        Pusat informasi kegiatan Pembelajaran
-                        di Luar Kampus (PDLK).
-                    </p>
-                </div>
+    </section>
 
-                <form method="POST"
-                      action="{{ route('logout') }}"
-                      class="logout-form">
-                    @csrf
-                    <button type="submit">↪ &nbsp; Logout</button>
-                </form>
-            </div>
-        </aside>
+</div>
 
-        <!-- KONTEN UTAMA -->
-        <main class="main">
-            <header class="topbar">
-                <div>
-                    <div class="breadcrumb">Portal / Dashboard</div>
-                    <h2>Dashboard Mahasiswa</h2>
-                </div>
-
-                <div class="profile">
-                    <div class="avatar">
-                        {{ strtoupper(substr(session('cis_user')['username'] ?? 'M', 0, 2)) }}
-                    </div>
-                    <div>
-                        <div class="profile-name">
-                            {{ session('cis_user')['username'] ?? 'Mahasiswa' }}
-                        </div>
-                        <div class="profile-role">Mahasiswa</div>
-                    </div>
-                </div>
-            </header>
-
-            <section class="welcome">
-                <div class="welcome-content">
-                    <span class="welcome-tag">PORTAL MAHASISWA PDLK</span>
-
-                    <h1>
-                        Selamat datang,
-                        {{ session('cis_user')['username'] ?? 'Mahasiswa' }}!
-                    </h1>
-
-                    <p>
-                        Pantau informasi kegiatan Pembelajaran di Luar Kampus
-                        melalui satu portal. Informasi kegiatan dan laporan
-                        akan ditampilkan sesuai modul yang tersedia.
-                    </p>
-                </div>
-
-                <div class="welcome-art" aria-hidden="true">🎓</div>
-            </section>
-
-            <section>
-                <div class="section-heading">
-                    <div>
-                        <h3>Ringkasan</h3>
-                        <p>Informasi umum kegiatan PDLK Anda</p>
-                    </div>
-                </div>
-
-                <div class="cards">
-                    <article class="stat-card">
-                        <div class="stat-top">
-                            <span class="stat-label">Status Kegiatan</span>
-                            <div class="stat-icon blue">◷</div>
-                        </div>
-                        <div class="stat-value">Belum tersedia</div>
-                        <p class="stat-description">
-                            Status kegiatan akan muncul setelah data
-                            terhubung ke dashboard.
-                        </p>
-                    </article>
-
-                    <article class="stat-card">
-                        <div class="stat-top">
-                            <span class="stat-label">Aktivitas</span>
-                            <div class="stat-icon green">▤</div>
-                        </div>
-                        <div class="stat-value">Belum tersedia</div>
-                        <p class="stat-description">
-                            Ringkasan aktivitas akan ditampilkan
-                            pada tahap pengembangan berikutnya.
-                        </p>
-                    </article>
-
-                    <article class="stat-card">
-                        <div class="stat-top">
-                            <span class="stat-label">Laporan</span>
-                            <div class="stat-icon orange">▧</div>
-                        </div>
-                        <div class="stat-value">Belum tersedia</div>
-                        <p class="stat-description">
-                            Informasi laporan akan ditampilkan setelah
-                            modul pelaporan dikembangkan.
-                        </p>
-                    </article>
-                </div>
-            </section>
-
-            <section class="content-panel">
-                <div class="section-heading">
-                    <div>
-                        <h3>Alur Kegiatan PDLK</h3>
-                        <p>Gambaran umum proses kegiatan mahasiswa</p>
-                    </div>
-                </div>
-
-                <div class="steps">
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <h4>Pendaftaran</h4>
-                        <p>Pengajuan dan pemeriksaan persyaratan.</p>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">2</div>
-                        <h4>Seleksi</h4>
-                        <p>Pemeriksaan dan penetapan status peserta.</p>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">3</div>
-                        <h4>Pelaksanaan</h4>
-                        <p>Pencatatan aktivitas dan penyusunan laporan.</p>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">4</div>
-                        <h4>Evaluasi</h4>
-                        <p>Pemantauan dan penilaian hasil kegiatan.</p>
-                    </div>
-                </div>
-            </section>
-
-            <section class="info-box">
-                <div class="info-icon">ℹ️</div>
-                <div>
-                    <strong>Informasi untuk Mahasiswa</strong>
-                    <p>
-                        Dashboard ini merupakan pusat informasi mahasiswa.
-                        Data status kegiatan, aktivitas, dan laporan belum
-                        terhubung ke kartu ringkasan ini.
-                    </p>
-                </div>
-            </section>
-
-            <footer class="footer">
-                Monitoring Magang · Sistem Informasi UPT PP-ESTEM
-            </footer>
-        </main>
-
-    </div>
-</body>
-</html>
+@endsection
