@@ -75,9 +75,6 @@ class LoginController extends Controller
             | NIM sementara hanya untuk Mahasiswa
             |--------------------------------------------------------------------------
             */
-            if (($user['role'] ?? null) === 'Mahasiswa') {
-                $user['nim'] = '42324032';
-            }
 
             session([
                 'cis_user' => $user,
