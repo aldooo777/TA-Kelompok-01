@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -10,11 +11,25 @@ return new class extends Migration
     {
         Schema::create('registrations', function (Blueprint $table) {
             $table->id();
-            $table->string('mahasiswa_id');
-            $table->string('nama');
-            $table->string('tempat_magang');
-            $table->string('status')->default('menunggu');
+
+            // Identitas mahasiswa dari CIS.
+            $table->string('mahasiswa_id', 50);
+            $table->string('nama', 150);
+
+            // Jenis kegiatan PDLK yang dipilih.
+            $table->string('jenis_pdlk', 50);
+
+            // Tempat pelaksanaan kegiatan.
+            $table->string('tempat_magang', 200);
+
+            // Status awal pendaftaran.
+            $table->string('status', 20)->default('menunggu');
+
             $table->timestamps();
+
+            // Index untuk membantu pencarian data.
+            $table->index('mahasiswa_id');
+            $table->index('status');
         });
     }
 

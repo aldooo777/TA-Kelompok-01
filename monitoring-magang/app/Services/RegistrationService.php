@@ -6,15 +6,8 @@ use App\Models\Registration;
 
 class RegistrationService
 {
-    protected CisService $cisService;
-
-    public function __construct(CisService $cisService)
-    {
-        $this->cisService = $cisService;
-    }
-
     /**
-     * Mengambil seluruh data pendaftaran dari database utama.
+     * Mengambil seluruh data pendaftaran.
      */
     public function getAll()
     {
@@ -32,45 +25,57 @@ class RegistrationService
     }
 
     /**
-     * Memverifikasi mahasiswa melalui CIS,
-     * kemudian menyimpan pendaftaran ke database utama.
+     * Menyimpan pendaftaran mahasiswa yang identitasnya
+     * sudah diverifikasi oleh RegistrationController.
      */
     public function create(array $data): array
     {
-        $nim = $data['mahasiswa_id'] ?? null;
+        // Periksa kelengkapan data.
+        $requiredFields = [
+            'mahasiswa_id',
+            'nama',
+            'jenis_pdlk',
+            'tempat_magang',
+        ];
 
-        if (empty($nim)) {
+        foreach ($requiredFields as $field) {
+            if (
+                !isset($data[$field]) ||
+                trim((string) $data[$field]) === ''
+            ) {
+                return [
+                    'success' => false,
+                    'message' => "Kolom {$field} wajib diisi.",
+                    'status' => 422,
+                ];
+            }
+        }
+
+        // Jenis kegiatan yang diizinkan.
+        $allowedTypes = [
+            'magang',
+            'kerja-praktik',
+            'penelitian',
+            'pertukaran-pelajar',
+            'kkn',
+            'studi-independen',
+            'kewirausahaan',
+        ];
+
+        if (!in_array($data['jenis_pdlk'], $allowedTypes, true)) {
             return [
                 'success' => false,
-                'message' => 'Mahasiswa ID wajib diisi.',
+                'message' => 'Jenis kegiatan PDLK tidak valid.',
                 'status' => 422,
             ];
         }
 
-        // Verifikasi identitas mahasiswa melalui CIS.
-        $student = $this->cisService->findStudentByNim($nim);
-
-        if (!$student) {
-            return [
-                'success' => false,
-                'message' => 'Mahasiswa dengan NIM tersebut tidak ditemukan di CIS.',
-                'status' => 404,
-            ];
-        }
-
-        if (empty($student['nim']) || empty($student['nama'])) {
-            return [
-                'success' => false,
-                'message' => 'Data identitas mahasiswa dari CIS tidak lengkap.',
-                'status' => 422,
-            ];
-        }
-
-        // Simpan langsung melalui model Registration.
+        // Simpan pendaftaran ke database utama.
         $registration = Registration::create([
-            'mahasiswa_id' => $student['nim'],
-            'nama' => $student['nama'],
-            'tempat_magang' => $data['tempat_magang'] ?? '',
+            'mahasiswa_id' => $data['mahasiswa_id'],
+            'nama' => $data['nama'],
+            'jenis_pdlk' => $data['jenis_pdlk'],
+            'tempat_magang' => $data['tempat_magang'],
             'status' => 'menunggu',
         ]);
 
@@ -83,7 +88,7 @@ class RegistrationService
     }
 
     /**
-     * Memperbarui data pendaftaran pada database utama.
+     * Memperbarui data pendaftaran.
      */
     public function update($id, array $data): array
     {
@@ -109,7 +114,7 @@ class RegistrationService
     }
 
     /**
-     * Menghapus data pendaftaran dari database utama.
+     * Menghapus data pendaftaran.
      */
     public function delete($id): array
     {

@@ -179,7 +179,8 @@ public function listPage()
      * Menyimpan pendaftaran mahasiswa.
      * NIM diverifikasi melalui CIS oleh RegistrationService.
      */
-    public function store(
+
+public function store(
     Request $request,
     CisService $cisService
 ) {
@@ -190,12 +191,17 @@ public function listPage()
         abort(403, 'Pendaftaran hanya tersedia untuk Mahasiswa.');
     }
 
-    // Validasi input formulir.
+    // Validasi formulir pendaftaran.
     $validated = $request->validate([
         'mahasiswa_id' => [
             'required',
             'string',
             'max:50',
+        ],
+        'jenis_pdlk' => [
+            'required',
+            'string',
+            'in:magang,kerja-praktik,penelitian,pertukaran-pelajar,kkn,studi-independen,kewirausahaan',
         ],
         'tempat_magang' => [
             'required',
@@ -204,7 +210,7 @@ public function listPage()
         ],
     ]);
 
-    // Verifikasi NIM melalui CIS.
+    // Verifikasi identitas mahasiswa melalui CIS.
     $student = $cisService->findStudentByNim(
         $validated['mahasiswa_id']
     );
@@ -223,7 +229,7 @@ public function listPage()
             ->withInput();
     }
 
-    // Pastikan NIM tersebut milik akun yang sedang login.
+    // Pastikan NIM sesuai dengan akun yang sedang login.
     $loginEmail = strtolower(trim(
         (string) ($cisUser['email'] ?? '')
     ));
@@ -240,12 +246,12 @@ public function listPage()
         return back()
             ->withErrors([
                 'registration' =>
-                    'NIM yang dimasukkan tidak sesuai dengan akun mahasiswa yang sedang login.',
+                    'NIM tidak sesuai dengan akun mahasiswa yang sedang login.',
             ])
             ->withInput();
     }
 
-    // Simpan identitas yang sudah diverifikasi ke session.
+    // Simpan identitas mahasiswa ke session.
     $cisUser['nim'] = $student['nim'];
     $cisUser['nama'] = $student['nama'];
 
@@ -253,7 +259,7 @@ public function listPage()
         'cis_user' => $cisUser,
     ]);
 
-    // Periksa apakah mahasiswa sudah memiliki pendaftaran.
+    // Periksa pendaftaran yang sudah ada.
     $existingRegistration = $this->registrationService
         ->getAll()
         ->first(function ($registration) use ($student) {
@@ -261,7 +267,7 @@ public function listPage()
                 === (string) $student['nim'];
         });
 
-    // Jangan membuat data duplikat.
+    // Pertahankan aturan sementara: satu NIM hanya satu pendaftaran.
     if ($existingRegistration) {
         return redirect()
             ->route('registration.create')
@@ -271,9 +277,11 @@ public function listPage()
             );
     }
 
-    // Simpan pendaftaran baru melalui RegistrationService.
+    // Simpan data yang sudah diverifikasi.
     $result = $this->registrationService->create([
         'mahasiswa_id' => $student['nim'],
+        'nama' => $student['nama'],
+        'jenis_pdlk' => $validated['jenis_pdlk'],
         'tempat_magang' => $validated['tempat_magang'],
     ]);
 
@@ -282,18 +290,18 @@ public function listPage()
             ->route('registration.create')
             ->with(
                 'success',
-                $result['message']
-                    ?? 'Pendaftaran berhasil disimpan.'
+                $result['message'] ?? 'Pendaftaran berhasil disimpan.'
             );
     }
 
     return back()
         ->withErrors([
             'registration' => $result['message']
-                ?? 'Pendaftaran magang gagal.',
+                ?? 'Pendaftaran gagal disimpan.',
         ])
         ->withInput();
 }
+
 
     public function update(Request $request, $id)
     {
