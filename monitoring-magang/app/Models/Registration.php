@@ -9,6 +9,7 @@ class Registration extends Model
     protected $fillable = [
         'mahasiswa_id',
         'nama',
+        'jenis_pdlk',
         'tempat_magang',
         'status',
     ];
