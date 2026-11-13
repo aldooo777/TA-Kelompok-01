@@ -11,7 +11,7 @@ class AuthenticateCis
     public function handle(Request $request, Closure $next): Response
     {
         if (!session()->has('cis_user')) {
-            return redirect()->route('login');
+            return redirect()->guest(route('login'));
         }
 
         return $next($request);

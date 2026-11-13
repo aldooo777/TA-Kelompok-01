@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\CisNewService;
 use App\Services\CisService;
+use App\Support\Peran;
 use Illuminate\Http\Request;
 
 class LoginController extends Controller
@@ -39,10 +40,14 @@ class LoginController extends Controller
                         'cis_token' => $response['token'],
                     ]);
 
-                    return redirect()->route('dashboard');
+                    $loginCisBaru = $user;
                 }
             } catch (\Throwable $e) {
                 // Jika CIS baru gagal, lanjut coba CIS lama.
+            }
+
+            if (isset($loginCisBaru)) {
+                return $this->selesaiLogin($request, $loginCisBaru);
             }
 
             /*
@@ -81,9 +86,11 @@ class LoginController extends Controller
                 'cis_token' => $response['token'],
             ]);
 
-            return redirect()->route('dashboard');
+            return $this->selesaiLogin($request, $user);
 
         } catch (\Throwable $e) {
+            report($e);
+
             return back()
                 ->withErrors([
                     'username' => 'Login ke CIS gagal. Silakan coba lagi.',
@@ -92,16 +99,32 @@ class LoginController extends Controller
         }
     }
 
+    /**
+     * Simpan identitas ke tabel users, hitung peran PDLK, lalu arahkan
+     * ke halaman yang tadinya ingin dibuka (misalnya form pendaftaran).
+     */
+    private function selesaiLogin(Request $request, array $user)
+    {
+        $request->session()->regenerate();
+
+        Peran::masuk(Peran::sinkronDariCis($user));
+
+        return redirect()->intended(route('dashboard'));
+    }
+
     public function logout(Request $request)
     {
         $request->session()->forget([
             'cis_user',
             'cis_token',
+            'pdlk_user_id',
+            'pdlk_peran',
+            'peran_aktif',
         ]);
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect()->route('beranda');
     }
 }

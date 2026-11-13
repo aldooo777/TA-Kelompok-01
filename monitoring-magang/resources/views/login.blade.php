@@ -345,6 +345,10 @@
 
             </form>
 
+            <p style="margin-top:18px;text-align:center;font-size:13px">
+                <a href="{{ route('beranda') }}">← Kembali ke halaman informasi PDLK</a>
+            </p>
+
         </section>
 
     </main>

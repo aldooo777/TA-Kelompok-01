@@ -10,14 +10,17 @@
 <style>
     /* Semua gaya dibatasi pada Dashboard Mahasiswa */
     .student-dashboard {
-        --student-blue: #348db8;
-        --student-blue-dark: #267ba5;
-        --student-text: #26364d;
-        --student-muted: #718096;
-        --student-border: #e1e7ef;
-        --student-bg-soft: #f5f8fc;
-        color: var(--student-text);
-    }
+    --student-blue: var(--accent);
+    --student-blue-dark: var(--accent-dark);
+    --student-blue-soft: var(--accent-soft);
+
+    --student-text: #26364d;
+    --student-muted: #718096;
+    --student-border: #e1e7ef;
+    --student-bg-soft: #f5f8fc;
+
+    color: var(--student-text);
+}
 
     .student-dashboard * {
         box-sizing: border-box;
@@ -35,7 +38,11 @@
         margin-bottom: 28px;
         overflow: hidden;
         border-radius: 5px;
-        background: linear-gradient(115deg, #287eaa, #3699c3);
+        background: linear-gradient(
+    115deg,
+    var(--student-blue-dark),
+    var(--student-blue)
+);
         color: #fff;
     }
 
@@ -183,20 +190,12 @@
         font-size: 19px;
     }
 
-    .student-dashboard .student-icon-blue {
-        color: #2878c8;
-        background: #edf4ff;
-    }
-
-    .student-dashboard .student-icon-green {
-        color: #0c9970;
-        background: #e8f7f0;
-    }
-
-    .student-dashboard .student-icon-orange {
-        color: #cc861b;
-        background: #fff4e4;
-    }
+    .student-dashboard .student-icon-blue,
+.student-dashboard .student-icon-green,
+.student-dashboard .student-icon-orange {
+    color: var(--student-blue-dark);
+    background: var(--student-blue-soft);
+}
 
     .student-dashboard .student-card h3 {
         margin: 0 0 10px;
@@ -319,8 +318,8 @@
         height: 33px;
         margin-bottom: 16px;
         border-radius: 50%;
-        background: #eaf3fb;
-        color: var(--student-blue);
+        background: var(--student-blue-soft);
+color: var(--student-blue-dark);
         font-size: 12px;
         font-weight: 700;
     }
@@ -435,7 +434,7 @@
 
             <h2>
                 Selamat datang,
-                {{ session('cis_user')['username'] ?? 'Mahasiswa' }}!
+                {{ session('cis_user')['nama'] ?? session('cis_user')['username'] ?? 'Mahasiswa' }}!
             </h2>
 
             <p>
@@ -462,108 +461,79 @@
         <div class="student-summary-grid">
 
             {{-- STATUS PENDAFTARAN --}}
+            @php
+                $kelasStatus = fn ($st) => match ($st) {
+                    'terdaftar', 'proses' => 'student-status-menunggu',
+                    'lulus', 'aktif', 'selesai' => 'student-status-diterima',
+                    'tidak_lulus', 'tidak_aktif' => 'student-status-ditolak',
+                    default => '',
+                };
+            @endphp
             <article class="student-card">
                 <div class="student-card-top">
-                    <span class="student-card-label">
-                        Status Pendaftaran
-                    </span>
-
-                    <div class="student-card-icon student-icon-blue"
-                         aria-hidden="true">
-                        ◷
-                    </div>
+                    <span class="student-card-label">Status Pendaftaran</span>
+                    <div class="student-card-icon student-icon-blue" aria-hidden="true">◷</div>
                 </div>
 
-                @if ($latestRegistration)
-                    @php
-                        $registrationStatus = strtolower(
-                            (string) ($latestRegistration->status ?? '')
-                        );
-
-                        $statusClass = match ($registrationStatus) {
-                            'menunggu' => 'student-status-menunggu',
-                            'diterima' => 'student-status-diterima',
-                            'ditolak' => 'student-status-ditolak',
-                            default => '',
-                        };
-
-                        $statusLabel = match ($registrationStatus) {
-                            'menunggu' => 'Menunggu',
-                            'diterima' => 'Diterima',
-                            'ditolak' => 'Ditolak',
-                            default => 'Tidak diketahui',
-                        };
-                    @endphp
-
+                @if ($pendaftaranTerbaru)
                     <div>
-                        <span class="student-status {{ $statusClass }}">
-                            {{ $statusLabel }}
+                        <span class="student-status {{ $kelasStatus($pendaftaranTerbaru->status) }}">
+                            {{ $pendaftaranTerbaru->status_label }}
                         </span>
                     </div>
-
-
-<p class="student-card-description">
-    Pendaftaran terbaru untuk
-    <strong>{{ $latestRegistration->tempat_magang ?? 'Tempat PDLK' }}</strong>.@if ($registrationStatus === 'diterima')
-        Pendaftaran Anda telah diterima.
-    @elseif ($registrationStatus === 'ditolak')
-        Pendaftaran Anda ditolak. Anda dapat melihat pilihan PDLK lainnya.
-    @else
-        Pendaftaran Anda masih menunggu persetujuan.
-    @endif
-</p>
-
-
-                    @if ($registrationStatus === 'diterima')
-                        <a href="{{ route('monitoring.index') }}"
-                           class="student-action">
-                            Buka Monitoring →
-                        </a>
-                    @elseif ($registrationStatus === 'ditolak')
-                        <a href="{{ route('pdlk.index') }}"
-                           class="student-action">
-                            Lihat Pilihan PDLK →
-                        </a>
-                    @else
-                        <a href="{{ route('pdlk.index') }}"
-                           class="student-action">
-                            Lihat Daftar PDLK →
-                        </a>
-                    @endif
-
-                @else
-                    <span class="student-status student-status-menunggu">
-                        Belum mendaftar
-                    </span>
-
                     <p class="student-card-description">
-                        Anda belum memiliki pendaftaran PDLK yang tercatat di sistem.
+                        Pendaftaran terbaru:
+                        <strong>{{ $pendaftaranTerbaru->lowongan->judul }}</strong>
+                        ({{ $pendaftaranTerbaru->lowongan->mitra->nama ?? '-' }}).
                     </p>
-
-                    <a href="{{ route('pdlk.index') }}"
-                       class="student-action">
-                        Daftar PDLK →
-                    </a>
+                    <a href="{{ route('mahasiswa.pendaftaran.index') }}" class="student-action">Lihat Progres Pendaftaran →</a>
+                @elseif ($pesertaAktif)
+                    {{-- PDLK mandiri / tautan mitra: didata langsung tanpa pendaftaran di sistem --}}
+                    <span class="student-status student-status-diterima">Tanpa pendaftaran</span>
+                    <p class="student-card-description">
+                        Anda didata langsung sebagai peserta PDLK (jalur mandiri atau tautan mitra)
+                        oleh koordinator PDLK prodi / UPT PP-ESTEM, sehingga tidak melalui pendaftaran lowongan di sistem.
+                    </p>
+                    <a href="{{ route('lowongan.index') }}" class="student-action">Lihat Lowongan Lain →</a>
+                @else
+                    <span class="student-status student-status-menunggu">Belum mendaftar</span>
+                    <p class="student-card-description">
+                        Baca lowongan dan kriterianya, lalu daftar pada lowongan yang sesuai.
+                    </p>
+                    <a href="{{ route('lowongan.index') }}" class="student-action">Lihat Lowongan →</a>
                 @endif
             </article>
 
-            {{-- AKTIVITAS --}}
+            {{-- STATUS KEGIATAN --}}
             <article class="student-card">
                 <div class="student-card-top">
-                    <span class="student-card-label">Aktivitas</span>
-
-                    <div class="student-card-icon student-icon-green"
-                         aria-hidden="true">
-                        ▤
-                    </div>
+                    <span class="student-card-label">Kegiatan PDLK</span>
+                    <div class="student-card-icon student-icon-green" aria-hidden="true">▤</div>
                 </div>
 
-                <h3>Dalam pengembangan</h3>
-
-                <p class="student-card-description">
-                    Ringkasan kegiatan dan progres monitoring akan tersedia
-                    setelah modul aktivitas dikembangkan.
-                </p>
+                @if ($pesertaAktif)
+                    <div>
+                        <span class="student-status {{ $kelasStatus($pesertaAktif->status) }}">
+                            {{ $pesertaAktif->status_label }}
+                        </span>
+                    </div>
+                    <p class="student-card-description">
+                        {{ $pesertaAktif->jenisKegiatan->nama ?? 'PDLK' }} di
+                        <strong>{{ $pesertaAktif->mitra->nama ?? '-' }}</strong>.
+                        @if ($pesertaAktif->status === 'tidak_aktif' && $pesertaAktif->alasan_tidak_aktif)
+                            Keterangan: {{ $pesertaAktif->alasan_tidak_aktif }}
+                        @endif
+                    </p>
+                    @if ($pesertaAktif->status === 'aktif')
+                        <a href="{{ route('monitoring.index') }}" class="student-action">Buka Monitoring →</a>
+                    @endif
+                @else
+                    <h3>Belum aktif</h3>
+                    <p class="student-card-description">
+                        Anda tercatat sebagai mahasiswa aktif PDLK setelah dinyatakan lulus seleksi,
+                        atau setelah didata oleh koordinator PDLK prodi / UPT untuk PDLK mandiri.
+                    </p>
+                @endif
             </article>
 
             {{-- LAPORAN --}}
@@ -604,7 +574,7 @@
                 <div class="student-flow-number">1</div>
                 <h3>Pendaftaran</h3>
                 <p>
-                    Pilih jenis kegiatan PDLK dan ajukan pendaftaran.
+                    Baca lowongan beserta kriterianya, lalu daftar melalui formulir.
                 </p>
             </article>
 
@@ -612,7 +582,7 @@
                 <div class="student-flow-number">2</div>
                 <h3>Seleksi</h3>
                 <p>
-                    Pengelola memeriksa pendaftaran dan menentukan status.
+                    Seleksi oleh mitra. Status: Terdaftar → Proses → Lulus / Tidak Lulus.
                 </p>
             </article>
 
@@ -620,7 +590,7 @@
                 <div class="student-flow-number">3</div>
                 <h3>Pelaksanaan</h3>
                 <p>
-                    Jalankan kegiatan dan isi monitoring sesuai periode.
+                    Perbarui progres, unggah bukti, dan isi monev tengah (minggu ke-8–9).
                 </p>
             </article>
 
@@ -628,7 +598,7 @@
                 <div class="student-flow-number">4</div>
                 <h3>Evaluasi</h3>
                 <p>
-                    Lengkapi evaluasi akhir sesuai ketentuan kegiatan PDLK.
+                    Isi monev akhir. Setelah monev lengkap, status menjadi Selesai.
                 </p>
             </article>
 
@@ -639,9 +609,9 @@
                 Siap mengelola kegiatan PDLK Anda?
             </p>
 
-            <a href="{{ route('pdlk.index') }}"
+            <a href="{{ route('lowongan.index') }}"
                class="student-action">
-                Buka Daftar PDLK →
+                Lihat Lowongan PDLK →
             </a>
         </div>
 

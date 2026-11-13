@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>@yield('title', 'Monitoring PDLK')</title>
+    <link rel="stylesheet" href="{{ asset('css/pdlk-app.css') }}">
+    @stack('styles')
 
     <style>
         :root {
@@ -473,16 +475,24 @@
         }
 
         .nav-link:hover,
-        .nav-group-toggle:hover {
-            color: #1d5c88;
-            background: #eef2f6;
-        }
+.nav-group-toggle:hover {
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+}
 
-        .nav-link.active {
-            color: #182536;
-            background: #eeeeef;
-            font-weight: 700;
-        }
+.nav-link.active {
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding-left: 13px;
+    font-weight: 700;
+}
+
+.nav-submenu {
+    display: none;
+    padding: 2px 0 5px;
+    background: var(--accent-soft);
+}
 
         .nav-icon {
             display: inline-flex;
@@ -700,6 +710,62 @@
         }
 
         /* =====================================================
+   SELURUH AKSEN KONTEN MENGIKUTI TEMA HEADER
+===================================================== */
+
+/* Banner Dashboard */
+.main-content .welcome,
+.main-content .welcome-banner {
+    background: linear-gradient(
+        120deg,
+        var(--accent-dark),
+        var(--accent)
+    ) !important;
+    color: #fff !important;
+}
+
+/* Tombol utama */
+.main-content .primary-link,
+.main-content .btn-primary,
+.main-content .button-primary,
+.main-content .action-link {
+    color: #fff !important;
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+}
+
+.main-content .primary-link:hover,
+.main-content .btn-primary:hover,
+.main-content .button-primary:hover,
+.main-content .action-link:hover {
+    background: var(--accent-dark) !important;
+}
+
+/* Judul dan navigasi */
+.main-content .page-title,
+.main-content .breadcrumb-home,
+.main-content .breadcrumb-link:hover {
+    color: var(--accent-dark) !important;
+}
+
+/* Ikon dan nomor alur */
+.main-content .stat-icon.blue,
+.main-content .step-number {
+    color: var(--accent-dark) !important;
+    background: var(--accent-soft) !important;
+}
+
+/* Informasi */
+.main-content .info-box {
+    background: var(--accent-soft) !important;
+    border-color: var(--accent-soft) !important;
+}
+
+.main-content .info-box strong {
+    color: var(--accent-dark) !important;
+}
+
+        /* =====================================================
            RESPONSIF
         ===================================================== */
 
@@ -828,7 +894,9 @@
 @php
     $cisUser = session('cis_user', []);
 
-    $role = $cisUser['role'] ?? 'Pengguna';
+    $peranAktif = \App\Support\Peran::aktif();
+    $role = \App\Support\Peran::label();
+    $semuaPeran = array_keys(\App\Support\Peran::semua());
     $username = $cisUser['username'] ?? 'Pengguna';
     $email = $cisUser['email'] ?? '';
 
@@ -978,6 +1046,19 @@
                                 <span class="role-badge">
                                     {{ $role }}
                                 </span>
+
+                                @if (count($semuaPeran) > 1)
+                                    <div class="profile-username" style="margin-top:10px">Ganti peran:</div>
+                                    @foreach ($semuaPeran as $kodePeran)
+                                        @continue($kodePeran === $peranAktif)
+                                        <form method="POST" action="{{ route('peran.ganti', $kodePeran) }}" style="margin-top:4px">
+                                            @csrf
+                                            <button type="submit" class="p-btn p-btn-light p-btn-sm" style="width:100%">
+                                                {{ \App\Support\Peran::label($kodePeran) }}
+                                            </button>
+                                        </form>
+                                    @endforeach
+                                @endif
                             </div>
 
                             <div class="profile-panel-footer">
@@ -1130,184 +1211,64 @@
                         <span class="nav-label">Dashboard</span>
                     </a>
 
-                    {{-- MENU MAHASISWA --}}
-                    @if ($role === 'Mahasiswa')
+                    @php
+                        $grup = function (string $ikon, string $label, array $tautan, array $pola) {
+                            return compact('ikon', 'label', 'tautan', 'pola');
+                        };
+                        $menu = [];
 
+                        if ($peranAktif === 'mahasiswa') {
+                            $menu[] = $grup('▦', 'Kegiatan PDLK', [
+                                ['Lowongan PDLK', route('lowongan.index'), 'lowongan.*'],
+                                ['Pendaftaran Saya', route('mahasiswa.pendaftaran.index'), 'mahasiswa.pendaftaran.*'],
+                            ], ['lowongan.*', 'mahasiswa.pendaftaran.*']);
+                            $menu[] = $grup('◷', 'Monitoring', [
+                                ['Monev Tengah & Akhir', route('monitoring.index'), 'monitoring.*'],
+                            ], ['monitoring.*']);
+                        }
 
-<div class="nav-group {{ (request()->routeIs('pdlk.*') || request()->routeIs('registration.create')) ? 'open' : '' }}">
-    <button
-        type="button"
-        class="nav-group-toggle"
-        data-menu-toggle
-        aria-expanded="{{ (request()->routeIs('pdlk.*') || request()->routeIs('registration.create')) ? 'true' : 'false' }}"
-    >
-        <span class="nav-icon">▦</span>
-        <span class="nav-label">Kegiatan PDLK</span>
-        <span class="nav-arrow">›</span>
-    </button>
+                        if ($peranAktif === 'staf_upt') {
+                            $menu[] = $grup('▤', 'Informasi', [
+                                ['Berita & Pengumuman', route('kelola.postingan.index'), 'kelola.postingan.*'],
+                                ['Lowongan', route('kelola.lowongan.index'), 'kelola.lowongan.*'],
+                            ], ['kelola.postingan.*', 'kelola.lowongan.*']);
+                            $menu[] = $grup('▦', 'Pengelolaan PDLK', [
+                                ['Pendaftar Lowongan', route('kelola.pendaftaran.index'), 'kelola.pendaftaran.*'],
+                                ['Mahasiswa Aktif', route('peserta.index'), 'peserta.*'],
+                            ], ['kelola.pendaftaran.*', 'peserta.*']);
+                        }
 
-    <div class="nav-submenu">
-        <a
-            href="{{ route('pdlk.index') }}"
-            class="nav-link {{ (request()->routeIs('pdlk.index') || request()->routeIs('registration.create')) ? 'active' : '' }}"
-        >
-            Daftar PDLK
-        </a>
-    </div>
-</div>
+                        if (in_array($peranAktif, ['koordinator_pdlk_prodi', 'koordinator_prodi'], true)) {
+                            $menu[] = $grup('◷', 'Pemantauan', [
+                                ['Mahasiswa PDLK Prodi', route('peserta.index'), 'peserta.*'],
+                            ], ['peserta.*']);
+                        }
+                    @endphp
 
+                    @foreach ($menu as $g)
+                        @php
+                            $terbuka = request()->routeIs(...$g['pola']);
+                        @endphp
+                        <div class="nav-group {{ $terbuka ? 'open' : '' }}">
+                            <button type="button" class="nav-group-toggle" data-menu-toggle
+                                    aria-expanded="{{ $terbuka ? 'true' : 'false' }}">
+                                <span class="nav-icon">{{ $g['ikon'] }}</span>
+                                <span class="nav-label">{{ $g['label'] }}</span>
+                                <span class="nav-arrow">›</span>
+                            </button>
+                            <div class="nav-submenu">
+                                @foreach ($g['tautan'] as [$teks, $url, $polaAktif])
+                                    <a href="{{ $url }}" class="nav-link {{ request()->routeIs($polaAktif) ? 'active' : '' }}"
+                                       @if (request()->routeIs($polaAktif)) aria-current="page" @endif>{{ $teks }}</a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
 
-
-
-
-<div class="nav-group {{ request()->routeIs('monitoring.*') ? 'open' : '' }}">
-    <button
-        type="button"
-        class="nav-group-toggle"
-        data-menu-toggle
-        aria-expanded="{{ request()->routeIs('monitoring.*') ? 'true' : 'false' }}"
-    >
-        <span class="nav-icon">◷</span>
-        <span class="nav-label">Monitoring</span>
-        <span class="nav-arrow">›</span>
-    </button>
-
-    <div class="nav-submenu">
-        <a
-            href="{{ route('monitoring.index') }}"
-            class="nav-link {{ request()->routeIs('monitoring.index') ? 'active' : '' }}"
-        >
-            Pilih Kegiatan
-        </a>
-    </div>
-</div>
-
-
-
-
-
-{{-- MENU LAPORAN --}}
-<div class="nav-group">
-    <button
-        type="button"
-        class="nav-group-toggle"
-        data-menu-toggle
-        aria-expanded="false"
-    >
-        <span class="nav-icon">▤</span>
-
-        <span class="nav-label">
-            Laporan
-        </span>
-
-        <span class="nav-arrow">›</span>
-    </button>
-
-    <div class="nav-submenu">
-        <span
-            class="nav-disabled"
-            title="Modul laporan belum tersedia"
-        >
-            Rekap Monitoring PDLK
-        </span>
-    </div>
-</div>
-
-
-                    {{-- MENU DOSEN --}}
-
-@elseif ($role === 'Dosen')
-
-    {{-- Pengelolaan PDLK --}}
-    <div class="nav-group {{ request()->routeIs('registration.*') ? 'open' : '' }}">
-        <button
-            type="button"
-            class="nav-group-toggle"
-            data-menu-toggle
-            aria-expanded="{{ request()->routeIs('registration.*') ? 'true' : 'false' }}"
-        >
-            <span class="nav-icon">▦</span>
-
-            <span class="nav-label">
-                Pengelolaan PDLK
-            </span>
-
-            <span class="nav-arrow">›</span>
-        </button>
-
-        <div class="nav-submenu">
-            <a
-                href="{{ route('registration.index') }}"
-                class="nav-link {{ request()->routeIs('registration.index') ? 'active' : '' }}"
-                @if (request()->routeIs('registration.index')) aria-current="page" @endif
-            >
-                Daftar Pendaftaran
-            </a>
-        </div>
-    </div>
-
-    {{-- Monitoring Mahasiswa --}}
-    <div class="nav-group">
-        <button
-            type="button"
-            class="nav-group-toggle"
-            data-menu-toggle
-            aria-expanded="false"
-        >
-            <span class="nav-icon">◷</span>
-
-            <span class="nav-label">
-                Monitoring Mahasiswa
-            </span>
-
-            <span class="nav-arrow">›</span>
-        </button>
-
-        <div class="nav-submenu">
-            <span
-                class="nav-disabled"
-                title="Modul belum tersedia"
-            >
-                Monitoring Pertengahan
-            </span>
-
-            <span
-                class="nav-disabled"
-                title="Modul belum tersedia"
-            >
-                Monitoring Akhir
-            </span>
-        </div>
-    </div>
-
-    {{-- Penilaian --}}
-    <div class="nav-group">
-        <button
-            type="button"
-            class="nav-group-toggle"
-            data-menu-toggle
-            aria-expanded="false"
-        >
-            <span class="nav-icon">☆</span>
-
-            <span class="nav-label">
-                Penilaian
-            </span>
-
-            <span class="nav-arrow">›</span>
-        </button>
-
-        <div class="nav-submenu">
-            <span
-                class="nav-disabled"
-                title="Modul belum tersedia"
-            >
-                Evaluasi Kegiatan
-            </span>
-        </div>
-    </div>
-
-@endif
+                    <a href="{{ route('beranda') }}" class="nav-link">
+                        <span class="nav-icon">⌂</span>
+                        <span class="nav-label">Halaman Publik</span>
+                    </a>
 
                 </nav>
             </aside>
@@ -1318,80 +1279,6 @@
 
 @php
     $breadcrumbs = [];
-    $jenis = request()->route('jenis');
-    $jenisQuery = request()->query('jenis');
-
-    if (request()->routeIs('dashboard')) {
-        $breadcrumbs[] = [
-            'label' => 'Dashboard',
-            'url' => route('dashboard'),
-        ];
-
-    } elseif (request()->routeIs('pdlk.index')) {
-        $breadcrumbs[] = [
-            'label' => 'Daftar PDLK',
-            'url' => route('pdlk.index'),
-        ];
-
-    } elseif (request()->routeIs('registration.create')) {
-        $breadcrumbs[] = [
-            'label' => 'Daftar PDLK',
-            'url' => route('pdlk.index'),
-        ];
-
-        $breadcrumbs[] = [
-            'label' => 'Formulir Pendaftaran',
-            'url' => route(
-                'registration.create',
-                $jenis ? ['jenis' => $jenis] : []
-            ),
-        ];
-
-    } elseif (request()->routeIs('monitoring.index')) {
-        $breadcrumbs[] = [
-            'label' => 'Monitoring',
-            'url' => route('monitoring.index'),
-        ];
-
-        $breadcrumbs[] = [
-            'label' => 'Pilih Kegiatan',
-            'url' => route('monitoring.index'),
-        ];
-
-    } elseif (request()->routeIs('monitoring.pertengahan')) {
-        $breadcrumbs[] = [
-            'label' => 'Monitoring',
-            'url' => route('monitoring.index'),
-        ];
-
-        $breadcrumbs[] = [
-            'label' => 'Monitoring Pertengahan',
-            'url' => route(
-                'monitoring.pertengahan',
-                $jenisQuery ? ['jenis' => $jenisQuery] : []
-            ),
-        ];
-
-    } elseif (request()->routeIs('monitoring.akhir')) {
-        $breadcrumbs[] = [
-            'label' => 'Monitoring',
-            'url' => route('monitoring.index'),
-        ];
-
-        $breadcrumbs[] = [
-            'label' => 'Monitoring Akhir',
-            'url' => route(
-                'monitoring.akhir',
-                $jenisQuery ? ['jenis' => $jenisQuery] : []
-            ),
-        ];
-
-    } elseif (request()->routeIs('registration.index')) {
-        $breadcrumbs[] = [
-            'label' => 'Daftar Pendaftaran PDLK',
-            'url' => route('registration.index'),
-        ];
-    }
 @endphp
 
 <div class="breadcrumb-bar">

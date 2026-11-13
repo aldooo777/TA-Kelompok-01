@@ -1,359 +1,119 @@
-
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Services\RegistrationService;
-use App\Services\CisService;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Kelola\LowonganController;
+use App\Http\Controllers\Kelola\PendaftaranController as KelolaPendaftaranController;
+use App\Http\Controllers\Kelola\PostinganController;
 use App\Http\Controllers\LoginController;
-use App\Http\Controllers\RegistrationController;
-
-// Halaman utama langsung mengarah ke Login.
-Route::redirect('/', '/login');
+use App\Http\Controllers\Mahasiswa\PendaftaranController;
+use App\Http\Controllers\PesertaPdlkController;
+use App\Http\Controllers\PublikController;
+use App\Support\Peran;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Halaman Login
+| Halaman Publik (Guest) - tanpa login
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/', [PublikController::class, 'beranda'])->name('beranda');
+Route::get('/lowongan', [PublikController::class, 'lowongan'])->name('lowongan.index');
+Route::get('/lowongan/{slug}', [PublikController::class, 'lowonganDetail'])->name('lowongan.show');
+Route::get('/berita', [PublikController::class, 'berita'])->name('berita.index');
+Route::get('/berita/{slug}', [PublikController::class, 'beritaDetail'])->name('berita.show');
+Route::get('/tentang-pdlk', [PublikController::class, 'tentang'])->name('tentang');
+
+/*
+|--------------------------------------------------------------------------
+| Login
 |--------------------------------------------------------------------------
 */
 
 Route::get('/login', function () {
-    return view('login');
+    return session()->has('cis_user') ? redirect()->route('dashboard') : view('login');
 })->name('login');
 
 Route::post('/login', [LoginController::class, 'login'])
+    ->middleware('throttle:10,1')
     ->name('login.process');
 
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 /*
 |--------------------------------------------------------------------------
-| Dashboard berdasarkan Role
+| Portal (wajib login)
 |--------------------------------------------------------------------------
 */
 
-Route::get('/dashboard', function (
-    RegistrationService $registrationService,
-    CisService $cisService
-) {
-    $role = session('cis_user')['role'] ?? null;
+Route::middleware('cis.auth')->group(function () {
+
+    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    // Pengguna dengan lebih dari satu peran dapat berganti peran aktif.
+    Route::post('/peran/{kode}', function (string $kode) {
+        abort_unless(Peran::gantiAktif($kode), 403);
+
+        return redirect()->route('dashboard')->with('success', 'Peran aktif: ' . Peran::label());
+    })->name('peran.ganti');
+
+    // Tautan lama "Daftar PDLK" diarahkan ke daftar lowongan.
+    Route::redirect('/pdlk', '/lowongan')->name('pdlk.index');
 
     /*
-    |--------------------------------------------------------------------------
-    | Dashboard Mahasiswa
-    |--------------------------------------------------------------------------
+    |----------------------------------------------------------------------
+    | Mahasiswa
+    |----------------------------------------------------------------------
     */
+    Route::middleware('peran:mahasiswa')->group(function () {
+        Route::get('/lowongan/{slug}/daftar', [PendaftaranController::class, 'create'])
+            ->name('mahasiswa.pendaftaran.create');
+        Route::post('/lowongan/{slug}/daftar', [PendaftaranController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('mahasiswa.pendaftaran.store');
+        Route::get('/pendaftaran-saya', [PendaftaranController::class, 'index'])
+            ->name('mahasiswa.pendaftaran.index');
+        Route::get('/pendaftaran-saya/{pendaftaran}/dokumen', [PendaftaranController::class, 'dokumen'])
+            ->name('mahasiswa.pendaftaran.dokumen');
 
-    if ($role === 'Mahasiswa') {
-        $cisUser = session('cis_user', []);
-
-        $loginEmail = strtolower(trim(
-            (string) ($cisUser['email'] ?? '')
-        ));
-
-        $registrations = $registrationService->getAll();
-        $latestRegistration = null;
-
-        // Cari pendaftaran mahasiswa berdasarkan email CIS.
-        if ($loginEmail !== '') {
-            $registeredNims = $registrations
-                ->pluck('mahasiswa_id')
-                ->filter()
-                ->unique()
-                ->values();
-
-            foreach ($registeredNims as $registeredNim) {
-                try {
-                    $student = $cisService->findStudentByNim(
-                        (string) $registeredNim
-                    );
-                } catch (\Throwable $e) {
-                    // Lewati data jika CIS gagal diakses.
-                    continue;
-                }
-
-                if (!$student) {
-                    continue;
-                }
-
-                $studentEmail = strtolower(trim(
-                    (string) ($student['email'] ?? '')
-                ));
-
-                if (
-                    $studentEmail !== '' &&
-                    $studentEmail === $loginEmail
-                ) {
-                    $latestRegistration = $registrations->first(
-                        function ($registration) use ($registeredNim) {
-                            return (string) $registration->mahasiswa_id
-                                === (string) $registeredNim;
-                        }
-                    );
-
-                    if ($latestRegistration) {
-                        $cisUser['nim'] = (string) $registeredNim;
-                        $cisUser['nama'] = $student['nama']
-                            ?? $latestRegistration->nama;
-
-                        session([
-                            'cis_user' => $cisUser,
-                        ]);
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        return view('dashboard.mahasiswa', [
-            'latestRegistration' => $latestRegistration,
-        ]);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Dashboard Dosen
-    |--------------------------------------------------------------------------
-    */
-
-    if ($role === 'Dosen') {
-        $registrations = $registrationService->getAll();
-
-        $registrationStats = [
-            'total' => $registrations->count(),
-
-            'menunggu' => $registrations
-                ->where('status', 'menunggu')
-                ->count(),
-
-            'diterima' => $registrations
-                ->where('status', 'diterima')
-                ->count(),
-
-            'ditolak' => $registrations
-                ->where('status', 'ditolak')
-                ->count(),
-        ];
-
-        return view(
-            'dashboard.dosen',
-            compact('registrationStats')
-        );
-    }
-
-    abort(403, 'Role tidak memiliki dashboard.');
-
-})->middleware('cis.auth')->name('dashboard');
-
-
-/*
-|--------------------------------------------------------------------------
-| Logout
-|--------------------------------------------------------------------------
-*/
-
-Route::post('/logout', [LoginController::class, 'logout'])
-    ->name('logout');
-
-
-/*
-|--------------------------------------------------------------------------
-| Halaman Formulir Pendaftaran PDLK
-|--------------------------------------------------------------------------
-| Parameter jenis bersifat opsional.
-| Tanpa jenis, formulir menggunakan jenis Magang.
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/registration/create/{jenis?}', [
-    RegistrationController::class,
-    'create',
-])
-    ->middleware('cis.auth')
-    ->name('registration.create');
-
-
-/*
-|--------------------------------------------------------------------------
-| Menyimpan Pendaftaran PDLK
-|--------------------------------------------------------------------------
-*/
-
-Route::post('/registration', [
-    RegistrationController::class,
-    'store',
-])
-    ->middleware('cis.auth')
-    ->name('registration.store');
-
-
-/*
-|--------------------------------------------------------------------------
-| Endpoint Data Pendaftaran
-|--------------------------------------------------------------------------
-*/
-
-Route::prefix('api')
-    ->middleware('cis.auth')
-    ->group(function () {
-
-        Route::get('/registrations', [
-            RegistrationController::class,
-            'index',
-        ]);
-
-        Route::post('/registrations', [
-            RegistrationController::class,
-            'store',
-        ]);
-
-        Route::get('/registrations/{id}', [
-            RegistrationController::class,
-            'show',
-        ]);
-
-        Route::put('/registrations/{id}', [
-            RegistrationController::class,
-            'update',
-        ]);
-
-        Route::delete('/registrations/{id}', [
-            RegistrationController::class,
-            'destroy',
-        ]);
+        Route::middleware('pdlk.accepted')->group(function () {
+            Route::view('/monitoring', 'monitoring.index')->name('monitoring.index');
+            Route::view('/monitoring/pertengahan', 'monitoring.pertengahan')->name('monitoring.pertengahan');
+            Route::view('/monitoring/akhir', 'monitoring.akhir')->name('monitoring.akhir');
+        });
     });
 
+    /*
+    |----------------------------------------------------------------------
+    | Mahasiswa aktif PDLK - Staf UPT & koordinator (dibatasi per prodi)
+    |----------------------------------------------------------------------
+    */
+    Route::middleware('peran:staf_upt,koordinator_pdlk_prodi,koordinator_prodi')->group(function () {
+        Route::get('/peserta-pdlk', [PesertaPdlkController::class, 'index'])->name('peserta.index');
+    });
 
-/*
-|--------------------------------------------------------------------------
-| Halaman Daftar Pendaftaran untuk Dosen
-|--------------------------------------------------------------------------
-*/
+    /*
+    |----------------------------------------------------------------------
+    | Staf UPT PP-ESTEM
+    |----------------------------------------------------------------------
+    */
+    Route::middleware('peran:staf_upt')->prefix('kelola')->name('kelola.')->group(function () {
+        Route::resource('postingan', PostinganController::class)
+            ->except('show')
+            ->parameters(['postingan' => 'postingan']);
 
-Route::get('/dosen/pendaftaran', [
-    RegistrationController::class,
-    'listPage',
-])
-    ->middleware('cis.auth')
-    ->name('registration.index');
+        Route::resource('lowongan', LowonganController::class)
+            ->except('show')
+            ->parameters(['lowongan' => 'lowongan']);
 
+        Route::get('pendaftaran', [KelolaPendaftaranController::class, 'index'])->name('pendaftaran.index');
+        Route::get('pendaftaran/ekspor', [KelolaPendaftaranController::class, 'ekspor'])->name('pendaftaran.ekspor');
+        Route::patch('pendaftaran/status-massal', [KelolaPendaftaranController::class, 'updateStatusMassal'])->name('pendaftaran.status-massal');
+        Route::patch('pendaftaran/{pendaftaran}/status', [KelolaPendaftaranController::class, 'updateStatus'])->name('pendaftaran.status');
+        Route::get('pendaftaran/{pendaftaran}/dokumen', [KelolaPendaftaranController::class, 'dokumen'])->name('pendaftaran.dokumen');
+    });
 
-/*
-|--------------------------------------------------------------------------
-| Mengubah Status Pendaftaran
-|--------------------------------------------------------------------------
-*/
-
-Route::patch('/dosen/pendaftaran/{id}/status', [
-    RegistrationController::class,
-    'updateStatus',
-])
-    ->middleware('cis.auth')
-    ->name('registration.updateStatus');
-
-
-/*
-|--------------------------------------------------------------------------
-| Halaman Pilihan Tujuh Jenis PDLK
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/pdlk', function () {
-    if ((session('cis_user')['role'] ?? null) !== 'Mahasiswa') {
-        abort(403, 'Menu PDLK hanya tersedia untuk Mahasiswa.');
-    }
-
-    return view('pdlk.index');
-
-})
-    ->middleware('cis.auth')
-    ->name('pdlk.index');
-
-
-/*
-|--------------------------------------------------------------------------
-| Memilih Jenis PDLK
-|--------------------------------------------------------------------------
-| Semua pilihan diarahkan ke formulir dengan jenis yang sesuai.
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/pdlk/pilih/{jenis}', function (string $jenis) {
-
-    if ((session('cis_user')['role'] ?? null) !== 'Mahasiswa') {
-        abort(403, 'Pendaftaran PDLK hanya tersedia untuk Mahasiswa.');
-    }
-
-    $pilihan = [
-        'magang' => 'Magang',
-        'kerja-praktik' => 'Kerja Praktik',
-        'penelitian' => 'Penelitian',
-        'pertukaran-pelajar' => 'Pertukaran Pelajar',
-        'kkn' => 'Kuliah Kerja Nyata (KKN)',
-        'studi-independen' => 'Studi Independen',
-        'kewirausahaan' => 'Kewirausahaan',
-    ];
-
-    abort_unless(
-        array_key_exists($jenis, $pilihan),
-        404,
-        'Jenis PDLK tidak ditemukan.'
-    );
-
-    return redirect()->route('registration.create', [
-        'jenis' => $jenis,
-    ]);
-
-})
-    ->middleware('cis.auth')
-    ->name('pdlk.pilih');
-
-
-/*
-|--------------------------------------------------------------------------
-| Monitoring Pertengahan PDLK
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/monitoring/pertengahan', function () {
-    if ((session('cis_user')['role'] ?? null) !== 'Mahasiswa') {
-        abort(403, 'Monitoring hanya tersedia untuk Mahasiswa.');
-    }
-
-    return view('monitoring.pertengahan');
-})
-    ->middleware(['cis.auth', 'pdlk.accepted'])
-    ->name('monitoring.pertengahan');
-
-
-/*
-|--------------------------------------------------------------------------
-| Monitoring Akhir PDLK
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/monitoring/akhir', function () {
-    if ((session('cis_user')['role'] ?? null) !== 'Mahasiswa') {
-        abort(403, 'Monitoring hanya tersedia untuk Mahasiswa.');
-    }
-
-    return view('monitoring.akhir');
-})
-    ->middleware(['cis.auth', 'pdlk.accepted'])
-    ->name('monitoring.akhir');
-
-
-/*
-|--------------------------------------------------------------------------
-| Halaman Utama Monitoring PDLK
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/monitoring', function () {
-    if ((session('cis_user')['role'] ?? null) !== 'Mahasiswa') {
-        abort(403, 'Monitoring hanya tersedia untuk Mahasiswa.');
-    }
-
-    return view('monitoring.index');
-})
-    ->middleware(['cis.auth', 'pdlk.accepted'])
-    ->name('monitoring.index');
+    Route::patch('/peserta-pdlk/{peserta}/tidak-aktif', [PesertaPdlkController::class, 'nonaktifkan'])
+        ->middleware('peran:staf_upt')
+        ->name('peserta.nonaktifkan');
+});

@@ -1,0 +1,233 @@
+/*
+ * Komponen bersama halaman PDLK (portal & halaman publik).
+ * Warna mengikuti tema aktif melalui variabel --accent.
+ */
+
+.p-stack > * + * { margin-top: 20px; }
+
+.p-card {
+    background: #fff;
+    border: 1px solid var(--border, #e2e6eb);
+    border-radius: 8px;
+    padding: 24px;
+}
+
+.p-card-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+.p-card-title { margin: 0; font-size: 18px; color: #26364d; }
+.p-card-subtitle { margin: 6px 0 0; color: var(--muted, #7b8797); line-height: 1.5; }
+
+/* Tombol */
+.p-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 38px;
+    padding: 8px 16px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.2;
+    cursor: pointer;
+    text-decoration: none !important;
+    white-space: nowrap;
+}
+
+.p-btn-primary { background: var(--accent, #318ab7); color: #fff !important; }
+.p-btn-primary:hover { background: var(--accent-dark, #24749b); }
+.p-btn-light { background: #fff; color: #354052 !important; border-color: var(--border, #e2e6eb); }
+.p-btn-light:hover { background: #f5f8fc; }
+.p-btn-danger { background: #fff; color: #c0392b !important; border-color: #f1c6c0; }
+.p-btn-danger:hover { background: #fdf1ef; }
+.p-btn-sm { min-height: 32px; padding: 5px 12px; font-size: 13px; }
+.p-btn[disabled] { opacity: .55; cursor: not-allowed; }
+
+/* Alert */
+.p-alert {
+    padding: 14px 16px;
+    border-radius: 6px;
+    border-left: 4px solid;
+    line-height: 1.5;
+}
+.p-alert ul { margin: 6px 0 0; padding-left: 18px; }
+.p-alert-success { background: #edf8f1; border-color: #2e9e5b; color: #1f6b3e; }
+.p-alert-danger  { background: #fdf1ef; border-color: #d9534f; color: #8a2a24; }
+.p-alert-warning { background: #fff8e6; border-color: #e0a800; color: #7a5b00; }
+.p-alert-info    { background: var(--accent-soft, #e7f3fa); border-color: var(--accent, #318ab7); color: #26364d; }
+
+/* Form */
+.p-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 20px;
+}
+.p-form-grid .p-span-2 { grid-column: 1 / -1; }
+
+.p-field label,
+.p-label {
+    display: block;
+    margin-bottom: 7px;
+    font-weight: 700;
+    color: #26364d;
+}
+.p-required { color: #d9534f; }
+.p-optional { color: var(--muted, #7b8797); font-weight: 400; font-size: 13px; }
+
+.p-input,
+.p-select,
+.p-textarea {
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid #cfd8e3;
+    border-radius: 6px;
+    background: #fff;
+    color: #26364d;
+    font: inherit;
+}
+.p-textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+.p-input:focus, .p-select:focus, .p-textarea:focus {
+    outline: none;
+    border-color: var(--accent, #318ab7);
+    box-shadow: 0 0 0 3px var(--accent-soft, #e7f3fa);
+}
+.p-input[aria-invalid="true"], .p-select[aria-invalid="true"], .p-textarea[aria-invalid="true"] { border-color: #d9534f; }
+.p-help { margin: 6px 0 0; font-size: 13px; color: var(--muted, #7b8797); line-height: 1.45; }
+.p-error { margin: 6px 0 0; font-size: 13px; color: #c0392b; }
+.p-check { display: inline-flex; gap: 8px; align-items: center; font-weight: 400; }
+
+.p-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border, #e2e6eb);
+}
+
+/* Toolbar filter */
+.p-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+}
+.p-toolbar .p-field { min-width: 180px; flex: 1; }
+.p-toolbar .p-field label { font-size: 13px; }
+
+/* Tabel */
+.p-table-wrap { overflow-x: auto; border: 1px solid var(--border, #e2e6eb); border-radius: 6px; }
+.p-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+.p-table th, .p-table td { padding: 12px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border, #e2e6eb); }
+.p-table th { background: #f5f8fc; font-size: 13px; color: #4a5a70; white-space: nowrap; }
+.p-table tr:last-child td { border-bottom: 0; }
+.p-table td .p-muted { display: block; margin-top: 3px; }
+.p-empty { padding: 28px; text-align: center; color: var(--muted, #7b8797); }
+
+/* Badge status */
+.p-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.p-badge-terdaftar, .p-badge-draft  { background: #eef1f5; color: #4a5a70; }
+.p-badge-proses                     { background: #fff3d6; color: #8a6100; }
+.p-badge-lulus, .p-badge-aktif,
+.p-badge-terbit, .p-badge-dibuka    { background: #e3f5ea; color: #1f7a45; }
+.p-badge-tidak_lulus, .p-badge-tidak_aktif,
+.p-badge-ditutup                    { background: #fdecea; color: #b03a2e; }
+.p-badge-selesai                    { background: var(--accent-soft, #e7f3fa); color: var(--accent-dark, #24749b); }
+
+.p-muted { color: var(--muted, #7b8797); font-size: 13px; }
+
+/* Statistik */
+.p-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+}
+.p-stat { padding: 16px 18px; border: 1px solid var(--border, #e2e6eb); border-radius: 8px; background: #fff; }
+.p-stat-label { font-size: 13px; color: var(--muted, #7b8797); }
+.p-stat-value { margin-top: 6px; font-size: 26px; font-weight: 700; color: #26364d; }
+
+/* Kartu postingan / lowongan */
+.p-grid-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 18px;
+}
+.p-post {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--border, #e2e6eb);
+    border-radius: 8px;
+    color: inherit !important;
+    text-decoration: none !important;
+    transition: box-shadow .15s ease, transform .15s ease;
+}
+.p-post:hover { box-shadow: 0 8px 22px rgba(30, 50, 80, .10); transform: translateY(-2px); }
+.p-post-media {
+    aspect-ratio: 4 / 3;
+    background: var(--accent-soft, #e7f3fa);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-dark, #24749b);
+    font-size: 34px;
+}
+.p-post-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.p-post-body { padding: 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.p-post-meta { font-size: 12px; color: var(--muted, #7b8797); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.p-post-title { margin: 0; font-size: 16px; line-height: 1.35; color: #26364d; }
+.p-post-text { margin: 0; color: #4a5a70; line-height: 1.55; font-size: 14px; }
+
+.p-detail-media { border-radius: 8px; overflow: hidden; background: #f5f8fc; max-width: 640px; }
+.p-detail-media img { width: 100%; display: block; }
+.p-prose { line-height: 1.7; color: #354052; white-space: pre-line; }
+
+.p-dl { display: grid; grid-template-columns: 180px 1fr; gap: 10px 16px; margin: 0; }
+.p-dl dt { color: var(--muted, #7b8797); }
+.p-dl dd { margin: 0; color: #26364d; font-weight: 600; }
+
+/* Pratinjau foto unggahan */
+.p-upload-preview {
+    margin-top: 10px;
+    max-width: 320px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border, #e2e6eb);
+}
+.p-upload-preview img { width: 100%; display: block; }
+
+/* Baris field tambahan pada form lowongan */
+.p-extra-row { display: grid; grid-template-columns: 1fr 180px auto; gap: 10px; margin-bottom: 10px; }
+
+.p-pagination { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
+.p-pagination a, .p-pagination span {
+    padding: 6px 12px; border: 1px solid var(--border, #e2e6eb); border-radius: 6px; background: #fff; font-size: 13px;
+}
+.p-pagination .active { background: var(--accent, #318ab7); color: #fff; border-color: var(--accent, #318ab7); }
+
+@media (max-width: 720px) {
+    .p-form-grid { grid-template-columns: 1fr; }
+    .p-dl { grid-template-columns: 1fr; gap: 2px; }
+    .p-dl dd { margin-bottom: 10px; }
+    .p-extra-row { grid-template-columns: 1fr; }
+    .p-card { padding: 18px; }
+}
