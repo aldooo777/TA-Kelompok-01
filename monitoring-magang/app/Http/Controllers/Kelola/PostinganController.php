@@ -39,7 +39,6 @@ class PostinganController extends Controller
             $data['foto_path'] = $request->file('foto')->store('postingan', 'public');
         }
 
-        $data['dibuat_oleh'] = Peran::userId();
 
         Postingan::create($data);
 

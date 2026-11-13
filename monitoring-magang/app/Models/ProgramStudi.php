@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\KolomAudit;
 use Illuminate\Database\Eloquent\Model;
 
 class ProgramStudi extends Model
 {
+    use KolomAudit;
+
     protected $table = 'program_studi';
 
     protected $fillable = ['kode', 'nama', 'jenjang'];

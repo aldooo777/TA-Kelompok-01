@@ -60,7 +60,7 @@ class PesertaPdlkService
                 'jenis_kegiatan_id' => $p->lowongan->jenis_kegiatan_id,
                 'mitra_id' => $p->lowongan->mitra_id,
                 'posisi' => $p->lowongan->posisi,
-                'diinput_oleh' => $olehUserId,
+                'created_by' => $olehUserId,
             ]
         );
 
@@ -69,7 +69,7 @@ class PesertaPdlkService
                 'status_lama' => null,
                 'status_baru' => PesertaPdlk::AKTIF,
                 'alasan' => 'Lulus seleksi: ' . $p->lowongan->judul,
-                'diubah_oleh' => $olehUserId,
+                'created_by' => $olehUserId,
             ]);
         }
 

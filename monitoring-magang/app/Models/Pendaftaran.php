@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\KolomAudit;
 use Illuminate\Database\Eloquent\Model;
 
 class Pendaftaran extends Model
 {
+    use KolomAudit;
+
     protected $table = 'pendaftaran';
 
     public const TERDAFTAR = 'terdaftar';

@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\KolomAudit;
 use Illuminate\Database\Eloquent\Model;
 
 class Mitra extends Model
 {
+    use KolomAudit;
+
     protected $table = 'mitra';
 
     protected $fillable = ['nama', 'bidang', 'alamat', 'website'];

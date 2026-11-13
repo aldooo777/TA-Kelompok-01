@@ -46,7 +46,7 @@ class LowonganController extends Controller
         $data = $this->validasi($request);
 
         DB::transaction(function () use ($request, $data) {
-            $lowongan = Lowongan::create($data + ['dibuat_oleh' => Peran::userId()]);
+            $lowongan = Lowongan::create($data);
             $this->simpanFieldTambahan($lowongan, $request->input('field_tambahan', []));
         });
 

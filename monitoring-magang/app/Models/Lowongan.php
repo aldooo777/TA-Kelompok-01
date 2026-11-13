@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\KolomAudit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -9,12 +10,14 @@ use Illuminate\Support\Str;
 
 class Lowongan extends Model
 {
+    use KolomAudit;
+
     protected $table = 'lowongan';
 
     protected $fillable = [
         'judul', 'slug', 'mitra_id', 'jenis_kegiatan_id', 'posisi', 'lokasi',
         'deskripsi', 'kriteria', 'kuota', 'tanggal_buka', 'tanggal_tutup',
-        'poster_path', 'is_published', 'dibuat_oleh',
+        'poster_path', 'is_published',
     ];
 
     protected $casts = [

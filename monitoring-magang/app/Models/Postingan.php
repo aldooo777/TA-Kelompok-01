@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\KolomAudit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -9,6 +10,8 @@ use Illuminate\Support\Str;
 
 class Postingan extends Model
 {
+    use KolomAudit;
+
     protected $table = 'postingan';
 
     public const JENIS = [
@@ -19,7 +22,7 @@ class Postingan extends Model
 
     protected $fillable = [
         'jenis', 'judul', 'slug', 'narasi', 'foto_path',
-        'is_published', 'published_at', 'dibuat_oleh',
+        'is_published', 'published_at',
     ];
 
     protected $casts = [

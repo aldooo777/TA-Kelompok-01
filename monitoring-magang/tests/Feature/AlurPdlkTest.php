@@ -327,6 +327,19 @@ class AlurPdlkTest extends TestCase
         $this->get('/peserta-pdlk')->assertSee('Aldo Lama');
     }
 
+    public function test_kolom_audit_terisi_otomatis(): void
+    {
+        $staf = $this->sebagai('Pegawai', [Role::STAF_UPT => null]);
+
+        $this->post('/kelola/postingan', ['jenis' => 'berita', 'judul' => 'Audit', 'narasi' => 'Isi', 'is_published' => 1]);
+
+        $p = Postingan::firstOrFail();
+        $this->assertSame($staf->id, (int) $p->created_by);
+        $this->assertNotNull($p->submitted_at);
+        $this->assertNotNull($p->created_at);
+        $this->assertSame($staf->id, (int) Mitra::dariNama('PT Audit')->created_by);
+    }
+
     public function test_perintah_beri_peran(): void
     {
         $this->artisan('pdlk:beri-peran', ['username' => 'monalisa', 'peran' => 'staf_upt'])->assertSuccessful();

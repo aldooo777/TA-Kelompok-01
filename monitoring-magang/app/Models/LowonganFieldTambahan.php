@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\KolomAudit;
 use Illuminate\Database\Eloquent\Model;
 
 class LowonganFieldTambahan extends Model
 {
+    use KolomAudit;
+
     protected $table = 'lowongan_field_tambahan';
 
     public const TIPE = [

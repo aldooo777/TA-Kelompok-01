@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\KolomAudit;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PesertaPdlk extends Model
 {
+    use KolomAudit;
+
     protected $table = 'peserta_pdlk';
 
     public const AKTIF = 'aktif';
@@ -37,7 +40,7 @@ class PesertaPdlk extends Model
         'nim', 'nama', 'status', 'pendaftaran_id', 'sumber', 'user_id',
         'program_studi_id', 'jenis_kegiatan_id', 'mitra_id', 'posisi',
         'tanggal_mulai', 'tanggal_selesai', 'status_pelaksanaan',
-        'mode_pelaksanaan', 'lokasi', 'alasan_tidak_aktif', 'diinput_oleh',
+        'mode_pelaksanaan', 'lokasi', 'alasan_tidak_aktif',
     ];
 
     protected $casts = [
@@ -98,7 +101,7 @@ class PesertaPdlk extends Model
             'status_lama' => $statusLama,
             'status_baru' => $statusBaru,
             'alasan' => $alasan,
-            'diubah_oleh' => $olehUserId,
+            'created_by' => $olehUserId,
         ]);
     }
 }
