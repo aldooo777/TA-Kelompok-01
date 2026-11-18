@@ -1,6 +1,8 @@
-@extends('layouts.publik')
+@extends($portal ? 'layouts.pdlk' : 'layouts.publik')
 
-@section('title', 'Lowongan PDLK')
+@section('title', 'Lowongan PDLK' . ($portal ? ' | Monitoring PDLK' : ''))
+@section('breadcrumb', 'Kegiatan PDLK / Lowongan')
+@section('page-title', 'Lowongan PDLK')
 
 @section('hero')
 <section class="pub-page-head">
@@ -12,6 +14,12 @@
 @endsection
 
 @section('content')
+<div class="{{ $portal ? 'p-stack' : '' }}">
+    @if ($portal)
+        @include('partials.flash')
+        <p class="p-muted" style="margin:0">Baca deskripsi dan kriteria setiap lowongan sebelum memutuskan untuk mendaftar.</p>
+    @endif
+
     <form method="GET" class="p-toolbar">
         <div class="p-field">
             <label for="q">Cari</label>
@@ -22,7 +30,7 @@
             <select id="jenis" name="jenis" class="p-select">
                 <option value="">Semua bentuk</option>
                 @foreach ($jenis as $j)
-                    <option value="{{ $j->slug }}" @selected(request('jenis') === $j->slug)>{{ $j->nama }}</option>
+                    <option value="{{ $j->slug }}" @selected(request('jenis') === $j->slug)>{{ $j->name }}</option>
                 @endforeach
             </select>
         </div>
@@ -34,9 +42,10 @@
     @else
         <div class="p-grid-cards">
             @foreach ($lowongan as $item)
-                @include('partials.kartu-lowongan', ['item' => $item])
+                @include('partials.kartu-lowongan', ['item' => $item, 'portal' => $portal])
             @endforeach
         </div>
         @include('partials.paginasi', ['paginator' => $lowongan])
     @endif
+</div>
 @endsection

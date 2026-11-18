@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\CisNewService;
 use App\Services\CisService;
 use App\Support\Peran;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 
 class LoginController extends Controller
@@ -88,6 +89,16 @@ class LoginController extends Controller
 
             return $this->selesaiLogin($request, $user);
 
+        } catch (ConnectionException $e) {
+            // Server CIS utama tidak terjangkau (biasanya hanya dapat diakses dari jaringan kampus).
+            report($e);
+
+            return back()
+                ->withErrors([
+                    'username' => 'Server CIS (' . (parse_url((string) config('sdi.cis_api_url'), PHP_URL_HOST) ?: 'CIS')
+                        . ') tidak dapat dihubungi dari jaringan ini. Gunakan jaringan kampus IT Del atau VPN, lalu coba lagi.',
+                ])
+                ->withInput($request->only('username'));
         } catch (\Throwable $e) {
             report($e);
 

@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Contoh pemakaian: ->middleware('peran:staf_upt,koordinator_pdlk_prodi')
+ * Contoh pemakaian: ->middleware('peran:upt_staff,pdlk_coordinator')
  * Akses diberikan bila PERAN AKTIF pengguna termasuk dalam daftar.
  */
 class EnsurePeran

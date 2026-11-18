@@ -3,90 +3,89 @@
 namespace App\Http\Controllers\Kelola;
 
 use App\Http\Controllers\Controller;
-use App\Models\Lowongan;
-use App\Models\Pendaftaran;
-use App\Services\PesertaPdlkService;
-use App\Support\Peran;
+use App\Services\ParticipantService;
+use App\Support\Label;
+use App\Support\Query;
+use App\Support\Sql;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 /**
- * Pengelolaan pendaftar oleh Staf UPT (PB-06, PB-07).
- * UPT mengirim data pendaftar ke mitra (unduh spreadsheet), lalu
- * memperbarui status sesuai hasil seleksi mitra.
+ * Pendaftar lowongan internal (applications) oleh Staf UPT, query SQL langsung.
+ * UPT mengirim data ke mitra (unduh spreadsheet), lalu memperbarui status.
  */
 class PendaftaranController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $this->query($request);
-
-        $statistik = (clone $query)->reorder()
-            ->selectRaw('status, COUNT(*) as jumlah')
-            ->groupBy('status')
-            ->pluck('jumlah', 'status');
+        [$where, $bind] = $this->filter($request);
 
         return view('kelola.pendaftaran.index', [
-            'pendaftaran' => $query->with(['lowongan.mitra', 'programStudi'])->paginate(20)->withQueryString(),
-            'lowonganList' => Lowongan::orderByDesc('created_at')->get(['id', 'judul']),
-            'statistik' => $statistik,
+            'pendaftaran' => Sql::paginate(Query::PENDAFTARAN . " WHERE $where ORDER BY ap.created_at DESC", $bind, 20),
+            'statistik' => Sql::all(
+                "SELECT ap.status, COUNT(*) AS jumlah FROM applications ap
+                 JOIN vacancy_details v ON v.id = ap.vacancy_id
+                 JOIN announcements a ON a.id = v.announcement_id
+                 JOIN partners p ON p.id = v.partner_id
+                 WHERE $where GROUP BY ap.status", $bind
+            )->pluck('jumlah', 'status'),
+            'lowonganList' => Sql::all(
+                "SELECT v.id, a.title FROM vacancy_details v JOIN announcements a ON a.id = v.announcement_id
+                 WHERE v.registration_type = 'internal' ORDER BY v.created_at DESC"
+            ),
         ]);
     }
 
-    public function updateStatus(Request $request, Pendaftaran $pendaftaran, PesertaPdlkService $service)
+    public function updateStatus(Request $request, int $id, ParticipantService $service)
     {
         $data = $request->validate([
-            'status' => ['required', Rule::in(array_keys(Pendaftaran::STATUS))],
-            'catatan' => ['nullable', 'string', 'max:1000'],
+            'status' => ['required', Rule::in(array_keys(Label::APPLICATION_STATUS))],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $hasil = $service->ubahStatusPendaftaran($pendaftaran, $data['status'], $data['catatan'] ?? null, Peran::userId());
+        $hasil = $service->changeApplicationStatus($id, $data['status'], $data['notes'] ?? null);
 
         return back()->with($hasil['ok'] ? 'success' : 'warning', $hasil['pesan']);
     }
 
     /** Tandai beberapa pendaftar sekaligus, mis. "Proses" setelah dikirim ke mitra. */
-    public function updateStatusMassal(Request $request, PesertaPdlkService $service)
+    public function updateStatusMassal(Request $request, ParticipantService $service)
     {
         $data = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
-            'ids.*' => ['integer', 'exists:pendaftaran,id'],
-            'status' => ['required', Rule::in(array_keys(Pendaftaran::STATUS))],
+            'ids.*' => ['integer', 'exists:applications,id'],
+            'status' => ['required', Rule::in(array_keys(Label::APPLICATION_STATUS))],
         ], ['ids.required' => 'Pilih minimal satu pendaftar.']);
 
         $berhasil = 0;
         $gagal = [];
 
-        foreach (Pendaftaran::whereIn('id', $data['ids'])->get() as $p) {
-            $hasil = $service->ubahStatusPendaftaran($p, $data['status'], null, Peran::userId());
-            $hasil['ok'] ? $berhasil++ : $gagal[] = $p->nama;
+        foreach ($data['ids'] as $id) {
+            $hasil = $service->changeApplicationStatus((int) $id, $data['status']);
+            $hasil['ok'] ? $berhasil++ : $gagal[] = Sql::value('SELECT name FROM applications WHERE id = ?', [$id]);
         }
 
-        $pesan = "{$berhasil} pendaftar diperbarui menjadi " . Pendaftaran::STATUS[$data['status']] . '.';
+        $pesan = "{$berhasil} pendaftar diperbarui menjadi " . Label::APPLICATION_STATUS[$data['status']] . '.';
 
-        if ($gagal) {
-            return back()->with('warning', $pesan . ' Tidak diubah (sudah lulus): ' . implode(', ', $gagal) . '.');
-        }
-
-        return back()->with('success', $pesan);
+        return $gagal
+            ? back()->with('warning', $pesan . ' Tidak diubah (sudah lulus): ' . implode(', ', $gagal) . '.')
+            : back()->with('success', $pesan);
     }
 
-    public function dokumen(Pendaftaran $pendaftaran)
+    public function dokumen(int $id)
     {
-        return Storage::disk('local')->download($pendaftaran->dokumen_path, $pendaftaran->nim . '-' . $pendaftaran->dokumen_nama_asli);
+        $ap = Sql::oneOrFail('SELECT nim, document_path, document_original_name FROM applications WHERE id = ?', [$id]);
+
+        return Storage::disk('local')->download($ap->document_path, $ap->nim . '-' . $ap->document_original_name);
     }
 
-    /**
-     * Unduh data pendaftar (CSV, dapat dibuka di Excel / Google Sheets)
-     * untuk dikirim ke mitra.
-     */
+    /** Unduh data pendaftar (CSV, bisa dibuka di Excel / Google Sheets) untuk dikirim ke mitra. */
     public function ekspor(Request $request)
     {
-        $rows = $this->query($request)->with(['lowongan.mitra', 'programStudi'])->get();
-        $nama = 'pendaftar-pdlk-' . now()->format('Ymd-His') . '.csv';
-
-        $kolomTambahan = $rows->flatMap(fn ($p) => array_keys($p->jawaban_tambahan ?? []))->unique()->values();
+        [$where, $bind] = $this->filter($request);
+        $rows = Sql::all(Query::PENDAFTARAN . " WHERE $where ORDER BY ap.created_at", $bind);
+        $kolomTambahan = $rows->flatMap(fn ($p) => array_keys((array) json_decode((string) $p->additional_answers, true)))->unique()->values();
 
         return response()->streamDownload(function () use ($rows, $kolomTambahan) {
             $out = fopen('php://output', 'w');
@@ -98,37 +97,39 @@ class PendaftaranController extends Controller
             ));
 
             foreach ($rows as $p) {
+                $jawaban = (array) json_decode((string) $p->additional_answers, true);
                 fputcsv($out, array_merge([
-                    $p->lowongan->judul,
-                    $p->lowongan->mitra->nama ?? '',
-                    $p->nim,
-                    $p->nama,
-                    $p->programStudi->label ?? '',
-                    $p->semester,
-                    number_format((float) $p->ipk, 2, '.', ''),
-                    "'" . $p->no_hp,
-                    $p->email,
-                    $p->status_label,
-                    $p->created_at->format('d/m/Y H:i'),
-                    route('kelola.pendaftaran.dokumen', $p),
-                ], $kolomTambahan->map(fn ($k) => $p->jawaban_tambahan[$k] ?? '')->all()));
+                    $p->vacancy_title, $p->partner_name, $p->nim, $p->name,
+                    trim($p->prodi_level . ' ' . $p->prodi_name), $p->semester,
+                    number_format((float) $p->gpa, 2, '.', ''), "'" . $p->phone, $p->email,
+                    Label::of(Label::APPLICATION_STATUS, $p->status), tgl($p->created_at, 'd/m/Y H:i'),
+                    route('kelola.pendaftaran.dokumen', $p->id),
+                ], $kolomTambahan->map(fn ($k) => $jawaban[$k] ?? '')->all()));
             }
 
             fclose($out);
-        }, $nama, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'pendaftar-pdlk-' . now()->format('Ymd-His') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    private function query(Request $request)
+    /** @return array{0: string, 1: array} */
+    private function filter(Request $request): array
     {
-        $q = trim((string) $request->query('q'));
+        $where = ['ap.is_active = true'];
+        $bind = [];
 
-        return Pendaftaran::query()
-            ->when($request->query('lowongan'), fn ($w, $id) => $w->where('lowongan_id', $id))
-            ->when($request->query('status'), fn ($w, $s) => $w->where('status', $s))
-            ->when($q !== '', fn ($w) => $w->where(function ($x) use ($q) {
-                $like = '%' . mb_strtolower($q) . '%';
-                $x->whereRaw('LOWER(nama) LIKE ?', [$like])->orWhere('nim', 'like', "%{$q}%");
-            }))
-            ->latest();
+        if ($v = $request->query('lowongan')) {
+            $where[] = 'ap.vacancy_id = ?';
+            $bind[] = (int) $v;
+        }
+        if ($s = $request->query('status')) {
+            $where[] = 'ap.status = ?';
+            $bind[] = $s;
+        }
+        if (($q = trim((string) $request->query('q'))) !== '') {
+            $where[] = '(LOWER(ap.name) LIKE ? OR ap.nim LIKE ?)';
+            array_push($bind, '%' . mb_strtolower($q) . '%', "%$q%");
+        }
+
+        return [implode(' AND ', $where), $bind];
     }
 }

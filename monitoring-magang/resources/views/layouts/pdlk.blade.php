@@ -1217,31 +1217,66 @@
                         };
                         $menu = [];
 
-                        if ($peranAktif === 'mahasiswa') {
-                            $menu[] = $grup('▦', 'Kegiatan PDLK', [
-                                ['Lowongan PDLK', route('lowongan.index'), 'lowongan.*'],
-                                ['Pendaftaran Saya', route('mahasiswa.pendaftaran.index'), 'mahasiswa.pendaftaran.*'],
-                            ], ['lowongan.*', 'mahasiswa.pendaftaran.*']);
-                            $menu[] = $grup('◷', 'Monitoring', [
-                                ['Monev Tengah & Akhir', route('monitoring.index'), 'monitoring.*'],
+                        // Menu Sprint 2–3 hanya tampil bila sprint tersebut sudah diaktifkan (PDLK_SPRINT).
+                        $saring = fn (array $tautan) => array_values(array_filter($tautan, fn ($t) => sprint($t['sprint'] ?? 1)));
+                        $tambah = function (string $ikon, string $label, array $tautan, array $pola) use (&$menu, $grup, $saring) {
+                            $tautan = $saring($tautan);
+                            if ($tautan) {
+                                $menu[] = $grup($ikon, $label, $tautan, $pola);
+                            }
+                        };
+
+                        if ($peranAktif === 'student') {
+                            $tambah('▦', 'Kegiatan PDLK', [
+                                ['Lowongan PDLK', route('portal.lowongan.index'), ['portal.lowongan.*', 'mahasiswa.pendaftaran.create']],
+                                ['Pendaftaran Saya', route('mahasiswa.pendaftaran.index'), 'mahasiswa.pendaftaran.*', 'sprint' => 2],
+                                ['Progres Pelaksanaan', route('mahasiswa.progres.edit'), 'mahasiswa.progres.*', 'sprint' => 2],
+                            ], ['portal.lowongan.*', 'mahasiswa.pendaftaran.*', 'mahasiswa.progres.*']);
+                            $tambah('◷', 'Monitoring', [
+                                ['Monev Tengah & Akhir', route('monitoring.index'), 'monitoring.*', 'sprint' => 3],
                             ], ['monitoring.*']);
                         }
 
-                        if ($peranAktif === 'staf_upt') {
-                            $menu[] = $grup('▤', 'Informasi', [
-                                ['Berita & Pengumuman', route('kelola.postingan.index'), 'kelola.postingan.*'],
+                        if ($peranAktif === 'upt_staff') {
+                            $tambah('▤', 'Informasi', [
+                                ['Berita', route('kelola.postingan.index'), 'kelola.postingan.*'],
                                 ['Lowongan', route('kelola.lowongan.index'), 'kelola.lowongan.*'],
-                            ], ['kelola.postingan.*', 'kelola.lowongan.*']);
-                            $menu[] = $grup('▦', 'Pengelolaan PDLK', [
-                                ['Pendaftar Lowongan', route('kelola.pendaftaran.index'), 'kelola.pendaftaran.*'],
-                                ['Mahasiswa Aktif', route('peserta.index'), 'peserta.*'],
+                                ['Pengumuman Hasil', route('kelola.hasil.index'), 'kelola.hasil.*', 'sprint' => 2],
+                                ['Galeri', route('kelola.galeri.index'), 'kelola.galeri.*'],
+                            ], ['kelola.postingan.*', 'kelola.lowongan.*', 'kelola.hasil.*', 'kelola.galeri.*']);
+                            $tambah('▦', 'Pengelolaan PDLK', [
+                                ['Pendaftar Lowongan', route('kelola.pendaftaran.index'), 'kelola.pendaftaran.*', 'sprint' => 2],
+                                ['Mahasiswa Aktif', route('peserta.index'), ['peserta.index', 'peserta.show', 'peserta.edit'], 'sprint' => 2],
+                                ['Tambah Mahasiswa Aktif', route('peserta.create'), 'peserta.create', 'sprint' => 2],
                             ], ['kelola.pendaftaran.*', 'peserta.*']);
+                            $tambah('◷', 'Monev', [
+                                ['Kuesioner', route('kelola.kuesioner.index'), 'kelola.kuesioner.*', 'sprint' => 3],
+                                ['Jadwal Monev', route('kelola.jadwal-monev.index'), 'kelola.jadwal-monev.*', 'sprint' => 3],
+                                ['Rekap Monev', route('rekap-monev.index'), 'rekap-monev.*', 'sprint' => 3],
+                            ], ['kelola.kuesioner.*', 'kelola.jadwal-monev.*', 'rekap-monev.*']);
+                            $master = [];
+                            foreach (\App\Support\MasterData::all() as $kunci => $def) {
+                                $master[] = [$def['title'], route('kelola.master.index', $kunci), 'kelola.master.*', $kunci];
+                            }
+                            $tambah('☰', 'Data Master', $master, ['kelola.master.*']);
+                            $tambah('♙', 'Pengguna', [
+                                ['Pengguna & Peran', route('kelola.pengguna.index'), 'kelola.pengguna.*'],
+                            ], ['kelola.pengguna.*']);
                         }
 
-                        if (in_array($peranAktif, ['koordinator_pdlk_prodi', 'koordinator_prodi'], true)) {
-                            $menu[] = $grup('◷', 'Pemantauan', [
-                                ['Mahasiswa PDLK Prodi', route('peserta.index'), 'peserta.*'],
-                            ], ['peserta.*']);
+                        if ($peranAktif === 'pdlk_coordinator') {
+                            $tambah('◷', 'Pemantauan', [
+                                ['Mahasiswa PDLK Prodi', route('peserta.index'), ['peserta.index', 'peserta.show', 'peserta.edit'], 'sprint' => 2],
+                                ['Tambah Mahasiswa Aktif', route('peserta.create'), 'peserta.create', 'sprint' => 2],
+                                ['Rekap Monev', route('rekap-monev.index'), 'rekap-monev.*', 'sprint' => 3],
+                            ], ['peserta.*', 'rekap-monev.*']);
+                        }
+
+                        if ($peranAktif === 'program_head') {
+                            $tambah('◷', 'Pemantauan', [
+                                ['Mahasiswa PDLK Prodi', route('peserta.index'), 'peserta.*', 'sprint' => 2],
+                                ['Rekap Monev', route('rekap-monev.index'), 'rekap-monev.*', 'sprint' => 3],
+                            ], ['peserta.*', 'rekap-monev.*']);
                         }
                     @endphp
 
@@ -1257,9 +1292,12 @@
                                 <span class="nav-arrow">›</span>
                             </button>
                             <div class="nav-submenu">
-                                @foreach ($g['tautan'] as [$teks, $url, $polaAktif])
-                                    <a href="{{ $url }}" class="nav-link {{ request()->routeIs($polaAktif) ? 'active' : '' }}"
-                                       @if (request()->routeIs($polaAktif)) aria-current="page" @endif>{{ $teks }}</a>
+                                @foreach ($g['tautan'] as $t)
+                                    @php
+                                        $aktifLink = request()->routeIs($t[2]) && (!isset($t[3]) || request()->route('master') === $t[3]);
+                                    @endphp
+                                    <a href="{{ $t[1] }}" class="nav-link {{ $aktifLink ? 'active' : '' }}"
+                                       @if ($aktifLink) aria-current="page" @endif>{{ $t[0] }}</a>
                                 @endforeach
                             </div>
                         </div>

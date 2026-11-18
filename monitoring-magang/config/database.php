@@ -93,8 +93,12 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'public',
+            // Pengujian otomatis memakai schema sementara 'pengujian' di database yang sama.
+            'search_path' => env('DB_SEARCH_PATH', 'public'),
             'sslmode' => 'prefer',
+            // Samakan zona waktu koneksi dengan aplikasi (WIB), sehingga data
+            // yang diisi lewat pgAdmin (CURRENT_TIMESTAMP) terbaca dengan benar.
+            'timezone' => env('DB_TIMEZONE', 'Asia/Jakarta'),
         ],
 
         'sqlsrv' => [

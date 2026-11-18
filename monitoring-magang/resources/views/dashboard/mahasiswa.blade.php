@@ -424,6 +424,7 @@ color: var(--student-blue-dark);
 </style>
 
 <div class="student-dashboard">
+    @include('partials.flash')
 
     {{-- SAMBUTAN --}}
     <section class="student-hero">
@@ -439,7 +440,11 @@ color: var(--student-blue-dark);
 
             <p>
                 Kelola kegiatan Pembelajaran di Luar Kampus melalui satu portal.
-                Pantau status pendaftaran, monitoring, dan laporan kegiatan Anda.
+                @if (sprint(3))
+                    Pantau status pendaftaran, monitoring, dan laporan kegiatan Anda.
+                @else
+                    Baca lowongan PDLK dan kirim pendaftaran Anda.
+                @endif
             </p>
         </div>
 
@@ -463,9 +468,9 @@ color: var(--student-blue-dark);
             {{-- STATUS PENDAFTARAN --}}
             @php
                 $kelasStatus = fn ($st) => match ($st) {
-                    'terdaftar', 'proses' => 'student-status-menunggu',
-                    'lulus', 'aktif', 'selesai' => 'student-status-diterima',
-                    'tidak_lulus', 'tidak_aktif' => 'student-status-ditolak',
+                    'registered', 'processing' => 'student-status-menunggu',
+                    'passed', 'active', 'completed' => 'student-status-diterima',
+                    'failed', 'inactive' => 'student-status-ditolak',
                     default => '',
                 };
             @endphp
@@ -475,16 +480,27 @@ color: var(--student-blue-dark);
                     <div class="student-card-icon student-icon-blue" aria-hidden="true">◷</div>
                 </div>
 
-                @if ($pendaftaranTerbaru)
+                @if ($pendaftaranTerbaru && !sprint(2))
+                    {{-- Sprint 1: pendaftaran terkirim; pemantauan status (PB-05) mulai Sprint 2 --}}
+                    <div><span class="student-status student-status-diterima">Terkirim</span></div>
+                    <p class="student-card-description">
+                        Pendaftaran terbaru:
+                        <strong>{{ $pendaftaranTerbaru->vacancy_title }}</strong>
+                        ({{ $pendaftaranTerbaru->partner_name }}),
+                        dikirim {{ tgl($pendaftaranTerbaru->created_at, 'd F Y H:i') }}.
+                    </p>
+                    <a href="{{ route('mahasiswa.pendaftaran.dokumen', $pendaftaranTerbaru->id) }}" class="student-action" target="_blank">Lihat Dokumen Terkirim →</a>
+                    <a href="{{ route('portal.lowongan.index') }}" class="student-action" style="margin-top:8px">Lihat Lowongan Lain →</a>
+                @elseif ($pendaftaranTerbaru)
                     <div>
                         <span class="student-status {{ $kelasStatus($pendaftaranTerbaru->status) }}">
-                            {{ $pendaftaranTerbaru->status_label }}
+                            {{ \App\Support\Label::of(\App\Support\Label::APPLICATION_STATUS, $pendaftaranTerbaru->status) }}
                         </span>
                     </div>
                     <p class="student-card-description">
                         Pendaftaran terbaru:
-                        <strong>{{ $pendaftaranTerbaru->lowongan->judul }}</strong>
-                        ({{ $pendaftaranTerbaru->lowongan->mitra->nama ?? '-' }}).
+                        <strong>{{ $pendaftaranTerbaru->vacancy_title }}</strong>
+                        ({{ $pendaftaranTerbaru->partner_name }}).
                     </p>
                     <a href="{{ route('mahasiswa.pendaftaran.index') }}" class="student-action">Lihat Progres Pendaftaran →</a>
                 @elseif ($pesertaAktif)
@@ -494,16 +510,17 @@ color: var(--student-blue-dark);
                         Anda didata langsung sebagai peserta PDLK (jalur mandiri atau tautan mitra)
                         oleh koordinator PDLK prodi / UPT PP-ESTEM, sehingga tidak melalui pendaftaran lowongan di sistem.
                     </p>
-                    <a href="{{ route('lowongan.index') }}" class="student-action">Lihat Lowongan Lain →</a>
+                    <a href="{{ route('portal.lowongan.index') }}" class="student-action">Lihat Lowongan Lain →</a>
                 @else
                     <span class="student-status student-status-menunggu">Belum mendaftar</span>
                     <p class="student-card-description">
                         Baca lowongan dan kriterianya, lalu daftar pada lowongan yang sesuai.
                     </p>
-                    <a href="{{ route('lowongan.index') }}" class="student-action">Lihat Lowongan →</a>
+                    <a href="{{ route('portal.lowongan.index') }}" class="student-action">Lihat Lowongan →</a>
                 @endif
             </article>
 
+            @if (sprint(2))
             {{-- STATUS KEGIATAN --}}
             <article class="student-card">
                 <div class="student-card-top">
@@ -514,18 +531,26 @@ color: var(--student-blue-dark);
                 @if ($pesertaAktif)
                     <div>
                         <span class="student-status {{ $kelasStatus($pesertaAktif->status) }}">
-                            {{ $pesertaAktif->status_label }}
+                            {{ \App\Support\Label::of(\App\Support\Label::PARTICIPANT_STATUS, $pesertaAktif->status) }}
                         </span>
                     </div>
                     <p class="student-card-description">
-                        {{ $pesertaAktif->jenisKegiatan->nama ?? 'PDLK' }} di
-                        <strong>{{ $pesertaAktif->mitra->nama ?? '-' }}</strong>.
-                        @if ($pesertaAktif->status === 'tidak_aktif' && $pesertaAktif->alasan_tidak_aktif)
-                            Keterangan: {{ $pesertaAktif->alasan_tidak_aktif }}
+                        {{ $pesertaAktif->activity_name ?? 'PDLK' }} di
+                        <strong>{{ $pesertaAktif->partner_name ?? '-' }}</strong>.
+                        @if ($pesertaAktif->stage || $pesertaAktif->work_mode)
+                            <br>Progres: {{ \App\Support\Label::of(\App\Support\Label::STAGE, $pesertaAktif->stage) }}
+                            · {{ \App\Support\Label::of(\App\Support\Label::WORK_MODE, $pesertaAktif->work_mode) }}
+                            @if ($pesertaAktif->location) · {{ $pesertaAktif->location }} @endif
+                        @endif
+                        @if ($pesertaAktif->status === 'inactive' && $pesertaAktif->inactive_reason)
+                            Keterangan: {{ $pesertaAktif->inactive_reason }}
                         @endif
                     </p>
-                    @if ($pesertaAktif->status === 'aktif')
-                        <a href="{{ route('monitoring.index') }}" class="student-action">Buka Monitoring →</a>
+                    @if ($pesertaAktif->status === 'active')
+                        <a href="{{ route('mahasiswa.progres.edit') }}" class="student-action">Perbarui Progres →</a>
+                        @if (sprint(3))
+                            <a href="{{ route('monitoring.index') }}" class="student-action" style="margin-top:8px">Buka Monitoring →</a>
+                        @endif
                     @endif
                 @else
                     <h3>Belum aktif</h3>
@@ -536,24 +561,32 @@ color: var(--student-blue-dark);
                 @endif
             </article>
 
-            {{-- LAPORAN --}}
+            @endif
+
+            @if (sprint(3))
+            {{-- MONEV --}}
             <article class="student-card">
                 <div class="student-card-top">
-                    <span class="student-card-label">Laporan</span>
-
-                    <div class="student-card-icon student-icon-orange"
-                         aria-hidden="true">
-                        ▧
-                    </div>
+                    <span class="student-card-label">Monev</span>
+                    <div class="student-card-icon student-icon-orange" aria-hidden="true">▧</div>
                 </div>
-
-                <h3>Dalam pengembangan</h3>
-
-                <p class="student-card-description">
-                    Informasi dan hasil laporan PDLK akan ditampilkan
-                    setelah modul pelaporan tersedia.
-                </p>
+                @if ($monev->isEmpty())
+                    <h3>Belum ada jadwal</h3>
+                    <p class="student-card-description">Jadwal monev tengah dan akhir akan muncul setelah ditetapkan UPT PP-ESTEM.</p>
+                @else
+                    @foreach ($monev as $m)
+                        <p class="student-card-description" style="margin:0 0 6px">
+                            <strong>{{ $m->type === 'mid' ? 'Monev Tengah' : 'Monev Akhir' }}</strong>:
+                            @if ($m->response_status === 'submitted') ✅ Terkirim
+                            @elseif ($m->open_at > now()->toDateTimeString()) Dibuka {{ tgl($m->open_at, 'd M Y') }}
+                            @else ⚠️ Belum dikirim (tenggat {{ tgl($m->deadline_at, 'd M Y') }})
+                            @endif
+                        </p>
+                    @endforeach
+                    <a href="{{ route('monitoring.index') }}" class="student-action">Buka Monev →</a>
+                @endif
             </article>
+            @endif
 
         </div>
     </section>
@@ -609,7 +642,7 @@ color: var(--student-blue-dark);
                 Siap mengelola kegiatan PDLK Anda?
             </p>
 
-            <a href="{{ route('lowongan.index') }}"
+            <a href="{{ route('portal.lowongan.index') }}"
                class="student-action">
                 Lihat Lowongan PDLK →
             </a>

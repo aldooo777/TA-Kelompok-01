@@ -2,19 +2,16 @@
 
 namespace App\Support;
 
-use App\Models\Role;
-use App\Models\User;
-use App\Models\UserRole;
 
 /**
  * Pengelolaan peran pengguna PDLK.
  *
  * Login tetap melalui CIS. Peran ditentukan sebagai berikut:
- *  - Mahasiswa              : role CIS = "Mahasiswa"
- *  - Staf UPT PP-ESTEM      : diberikan lewat tabel user_roles
- *  - Koordinator PDLK Prodi : diberikan lewat user_roles (dengan prodi)
- *  - Koordinator Prodi      : diberikan lewat user_roles (dengan prodi)
- *  - Guest                  : pengunjung yang belum login
+ *  - student          : role CIS = "Mahasiswa" (tidak disimpan di user_roles)
+ *  - upt_staff        : dari tabel user_roles
+ *  - pdlk_coordinator : dari user_roles (dengan study_program_id)
+ *  - program_head     : dari user_roles (dengan study_program_id)
+ *  - Guest            : pengunjung yang belum login
  *
  * Satu akun dapat memiliki beberapa peran; pengguna memilih peran aktif.
  */
@@ -22,84 +19,85 @@ class Peran
 {
     /** Urutan prioritas peran aktif bawaan. */
     public const PRIORITAS = [
-        Role::STAF_UPT,
-        Role::KOORDINATOR_PDLK_PRODI,
-        Role::KOORDINATOR_PRODI,
-        Role::MAHASISWA,
+        'upt_staff',
+        'pdlk_coordinator',
+        'program_head',
+        'student',
     ];
 
     public const LABEL = [
-        Role::MAHASISWA => 'Mahasiswa',
-        Role::STAF_UPT => 'Staf UPT PP-ESTEM',
-        Role::KOORDINATOR_PDLK_PRODI => 'Koordinator PDLK Prodi',
-        Role::KOORDINATOR_PRODI => 'Koordinator Program Studi',
+        'student' => 'Mahasiswa',
+        'upt_staff' => 'Staf UPT PP-ESTEM',
+        'pdlk_coordinator' => 'Koordinator PDLK Prodi',
+        'program_head' => 'Koordinator Program Studi',
     ];
 
     /**
-     * Simpan / perbarui identitas CIS ke tabel users.
-     * Password CIS tidak pernah disimpan.
+     * Simpan / perbarui identitas CIS ke tabel users. Password CIS tidak disimpan.
+     * Mengembalikan id users.
      */
-    public static function sinkronDariCis(array $cisUser): User
+    public static function sinkronDariCis(array $cisUser): int
     {
         $username = (string) ($cisUser['username'] ?? '');
-        $email = strtolower(trim((string) ($cisUser['email'] ?? '')));
+        $email = strtolower(trim((string) ($cisUser['email'] ?? ''))) ?: null;
+        $cisId = $cisUser['user_id'] ?? null;
 
-        $user = User::query()
-            ->when(
-                !empty($cisUser['user_id']),
-                fn ($q) => $q->where('cis_user_id', $cisUser['user_id'])->orWhere('username', $username),
-                fn ($q) => $q->where('username', $username)
-            )
-            ->first() ?? new User();
+        $user = Sql::one(
+            'SELECT id, name, email, cis_position FROM users WHERE (cis_user_id = ?::bigint AND ?::bigint IS NOT NULL) OR username = ? LIMIT 1',
+            [$cisId, $cisId, $username]
+        );
 
-        $user->fill([
-            'cis_user_id' => $cisUser['user_id'] ?? $user->cis_user_id,
+        $data = [
+            'cis_user_id' => $cisId,
             'username' => $username,
-            'name' => $cisUser['nama'] ?? $cisUser['name'] ?? $user->name ?? $username,
-            'email' => $email !== '' ? $email : ($user->email ?: $username . '@cis.local'),
+            'name' => $cisUser['nama'] ?? $cisUser['name'] ?? $user?->name ?? $username,
+            'email' => $email ?? $user?->email,
             'cis_role' => $cisUser['role'] ?? null,
-            'cis_jabatan' => isset($cisUser['jabatan'])
-                ? (array) $cisUser['jabatan']
-                : $user->cis_jabatan,
+            'cis_position' => isset($cisUser['jabatan']) ? (array) $cisUser['jabatan'] : json_decode((string) $user?->cis_position, true),
             'last_login_at' => now(),
-        ]);
+        ];
 
-        $user->save();
+        if ($user) {
+            Sql::update('users', $user->id, $data);
 
-        return $user;
+            return (int) $user->id;
+        }
+
+        return Sql::insert('users', $data);
     }
 
-    /**
-     * Hitung seluruh peran pengguna lalu simpan ke session.
-     */
-    public static function masuk(User $user): void
+    /** Hitung seluruh peran pengguna lalu simpan ke session. */
+    public static function masuk(int $userId): void
     {
+        $user = Sql::one('SELECT id, nim, cis_role FROM users WHERE id = ?', [$userId]);
         $peran = [];
 
         if (strcasecmp((string) $user->cis_role, 'Mahasiswa') === 0) {
-            $peran[Role::MAHASISWA] = [];
+            $peran['student'] = [];
         }
 
-        UserRole::with('role')
-            ->where('user_id', $user->id)
-            ->get()
-            ->each(function (UserRole $ur) use (&$peran) {
-                $kode = $ur->role->kode;
-                $peran[$kode] = $peran[$kode] ?? [];
+        $baris = Sql::all(
+            'SELECT r.code, ur.study_program_id
+             FROM user_roles ur
+             JOIN roles r ON r.id = ur.role_id
+             WHERE ur.user_id = ? AND ur.is_active = true AND r.is_active = true',
+            [$userId]
+        );
 
-                // null = berlaku untuk seluruh prodi
-                $peran[$kode][] = $ur->program_studi_id;
-            });
+        foreach ($baris as $b) {
+            $peran[$b->code] = $peran[$b->code] ?? [];
+            // null = berlaku untuk seluruh prodi
+            $peran[$b->code][] = $b->study_program_id === null ? null : (int) $b->study_program_id;
+        }
 
         $aktif = collect(self::PRIORITAS)->first(fn ($k) => array_key_exists($k, $peran));
 
         session([
-            'pdlk_user_id' => $user->id,
+            'pdlk_user_id' => (int) $user->id,
             'pdlk_peran' => $peran,
             'peran_aktif' => $aktif,
         ]);
 
-        // Simpan NIM mahasiswa yang sudah pernah terverifikasi.
         if ($user->nim) {
             $cis = session('cis_user', []);
             $cis['nim'] = $user->nim;
@@ -151,16 +149,16 @@ class Peran
         return session('pdlk_user_id');
     }
 
-    public static function user(): ?User
+    public static function user(): ?object
     {
         $id = self::userId();
 
-        return $id ? User::find($id) : null;
+        return $id ? Sql::one('SELECT * FROM users WHERE id = ?', [$id]) : null;
     }
 
     /**
      * ID prodi yang boleh dilihat oleh peran aktif.
-     * Mengembalikan null bila tidak dibatasi (Staf UPT / cakupan institusi).
+     * null = tidak dibatasi (Staf UPT / cakupan institusi).
      *
      * @return array<int>|null
      */
@@ -168,7 +166,7 @@ class Peran
     {
         $kode = self::aktif();
 
-        if ($kode === Role::STAF_UPT) {
+        if ($kode === 'upt_staff') {
             return null;
         }
 

@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\JenisKegiatan;
-use App\Models\Lowongan;
-use App\Models\Postingan;
+use App\Support\Query;
+use App\Support\Sql;
 use Illuminate\Http\Request;
 
 /**
@@ -16,69 +15,159 @@ class PublikController extends Controller
     public function beranda()
     {
         return view('publik.beranda', [
-            'lowongan' => Lowongan::terbit()->with(['mitra', 'jenisKegiatan'])
-                ->latest()->take(6)->get(),
-            'postingan' => Postingan::terbit()->take(6)->get(),
-            'jenisKegiatan' => JenisKegiatan::orderBy('urutan')->get(),
+            'lowongan' => Sql::all(Query::LOWONGAN . ' WHERE ' . Query::LOWONGAN_TERBIT . ' ORDER BY a.published_at DESC NULLS LAST, v.id DESC LIMIT 6'),
+            'berita' => Sql::all('SELECT * FROM announcements a WHERE ' . Query::BERITA_TERBIT . ' ORDER BY a.published_at DESC NULLS LAST LIMIT 6'),
+            'jenisKegiatan' => Sql::all('SELECT * FROM activity_types WHERE is_active = true ORDER BY display_order, name'),
+            'galeri' => Sql::all("SELECT * FROM galleries WHERE is_active = true AND status = 'published' ORDER BY event_date DESC NULLS LAST, id DESC LIMIT 4"),
+            'statistik' => [
+                'lowongan' => (int) Sql::value(
+                    'SELECT COUNT(*) FROM vacancy_details v JOIN announcements a ON a.id = v.announcement_id WHERE ' . Query::LOWONGAN_TERBIT . '
+                     AND v.is_closed = false
+                     AND (v.registration_start_date IS NULL OR v.registration_start_date <= CURRENT_DATE)
+                     AND (v.registration_deadline IS NULL OR v.registration_deadline >= CURRENT_DATE)'
+                ),
+                'mitra' => (int) Sql::value('SELECT COUNT(*) FROM partners WHERE is_active = true'),
+                'bentuk' => (int) Sql::value('SELECT COUNT(*) FROM activity_types WHERE is_active = true'),
+            ],
         ]);
     }
 
     public function lowongan(Request $request)
     {
-        $jenis = JenisKegiatan::orderBy('urutan')->get();
-        $q = trim((string) $request->query('q'));
+        $where = [Query::LOWONGAN_TERBIT];
+        $bind = [];
 
-        $lowongan = Lowongan::terbit()
-            ->with(['mitra', 'jenisKegiatan'])
-            ->when($request->query('jenis'), fn ($query, $slug) =>
-                $query->whereHas('jenisKegiatan', fn ($j) => $j->where('slug', $slug)))
-            ->when($q !== '', fn ($query) => $query->where(function ($w) use ($q) {
-                $like = '%' . mb_strtolower($q) . '%';
-                $w->whereRaw('LOWER(judul) LIKE ?', [$like])
-                    ->orWhereRaw('LOWER(posisi) LIKE ?', [$like])
-                    ->orWhereHas('mitra', fn ($m) => $m->whereRaw('LOWER(nama) LIKE ?', [$like]));
-            }))
-            ->orderByRaw('CASE WHEN tanggal_tutup IS NULL OR tanggal_tutup >= ? THEN 0 ELSE 1 END', [now()->toDateString()])
-            ->latest()
-            ->paginate(12)
-            ->withQueryString();
+        if ($slug = $request->query('jenis')) {
+            $where[] = 't.slug = ?';
+            $bind[] = $slug;
+        }
+        if (($q = trim((string) $request->query('q'))) !== '') {
+            $where[] = '(LOWER(a.title) LIKE ? OR LOWER(COALESCE(v.position, \'\')) LIKE ? OR LOWER(p.name) LIKE ?)';
+            array_push($bind, ...array_fill(0, 3, '%' . mb_strtolower($q) . '%'));
+        }
 
-        return view('publik.lowongan-index', compact('lowongan', 'jenis', 'q'));
+        $lowongan = Sql::paginate(
+            Query::LOWONGAN . ' WHERE ' . implode(' AND ', $where) . '
+             ORDER BY CASE WHEN v.is_closed = false AND (v.registration_deadline IS NULL OR v.registration_deadline >= CURRENT_DATE) THEN 0 ELSE 1 END,
+                      a.published_at DESC NULLS LAST',
+            $bind, 12
+        );
+
+        return view('publik.lowongan-index', [
+            'portal' => self::diPortal(),
+            'lowongan' => $lowongan,
+            'jenis' => Sql::all('SELECT slug, name FROM activity_types WHERE is_active = true ORDER BY display_order'),
+            'q' => $q ?? '',
+        ]);
+    }
+
+    /**
+     * Halaman lowongan juga dibuka dari portal (sudah login) agar pengguna tetap
+     * berada di tampilan dashboard; isinya sama dengan halaman publik.
+     */
+    private static function diPortal(): bool
+    {
+        return request()->routeIs('portal.lowongan.*');
     }
 
     public function lowonganDetail(string $slug)
     {
-        $lowongan = Lowongan::terbit()
-            ->with(['mitra', 'jenisKegiatan', 'fieldTambahan'])
-            ->where('slug', $slug)
-            ->firstOrFail();
+        $lowongan = self::cariLowongan($slug);
 
-        return view('publik.lowongan-show', compact('lowongan'));
+        return view('publik.lowongan-show', [
+            'portal' => self::diPortal(),
+            'lowongan' => $lowongan,
+            'lampiran' => self::lampiran($lowongan->announcement_id),
+            'hasil' => Sql::all(
+                'SELECT a.title, a.slug FROM announcements a WHERE ' . str_replace("a.type = 'news'", "a.type = 'result'", Query::BERITA_TERBIT) . ' AND a.source_announcement_id = ?',
+                [$lowongan->announcement_id]
+            ),
+        ]);
     }
 
-    public function berita(Request $request)
+    public function berita()
     {
-        $postingan = Postingan::terbit()
-            ->when($request->query('jenis'), fn ($q, $jenis) => $q->where('jenis', $jenis))
-            ->paginate(12)
-            ->withQueryString();
-
-        return view('publik.berita-index', compact('postingan'));
+        return view('publik.berita-index', [
+            'berita' => Sql::paginate('SELECT * FROM announcements a WHERE ' . Query::BERITA_TERBIT . ' ORDER BY a.published_at DESC NULLS LAST', [], 12),
+        ]);
     }
 
     public function beritaDetail(string $slug)
     {
-        $postingan = Postingan::terbit()->where('slug', $slug)->firstOrFail();
+        $berita = Sql::oneOrFail('SELECT * FROM announcements a WHERE ' . Query::BERITA_TERBIT . ' AND a.slug = ?', [$slug]);
 
-        $lainnya = Postingan::terbit()->whereKeyNot($postingan->id)->take(3)->get();
+        return view('publik.berita-show', [
+            'berita' => $berita,
+            'lampiran' => self::lampiran($berita->id),
+            'lainnya' => Sql::all('SELECT * FROM announcements a WHERE ' . Query::BERITA_TERBIT . ' AND a.id <> ? ORDER BY a.published_at DESC LIMIT 3', [$berita->id]),
+        ]);
+    }
 
-        return view('publik.berita-show', compact('postingan', 'lainnya'));
+    public function hasil()
+    {
+        return view('publik.hasil-index', [
+            'hasil' => Sql::paginate(
+                "SELECT a.*, (SELECT COUNT(*) FROM announcement_result_items i WHERE i.announcement_id = a.id AND i.is_active) AS jumlah
+                 FROM announcements a WHERE " . str_replace("a.type = 'news'", "a.type = 'result'", Query::BERITA_TERBIT) . "
+                 ORDER BY a.published_at DESC NULLS LAST", [], 12
+            ),
+        ]);
+    }
+
+    public function hasilDetail(string $slug)
+    {
+        $hasil = Sql::oneOrFail(
+            'SELECT a.*, src.title AS lowongan_title, src.slug AS lowongan_slug FROM announcements a
+             LEFT JOIN announcements src ON src.id = a.source_announcement_id
+             WHERE ' . str_replace("a.type = 'news'", "a.type = 'result'", Query::BERITA_TERBIT) . ' AND a.slug = ?', [$slug]
+        );
+
+        return view('publik.hasil-show', [
+            'hasil' => $hasil,
+            'items' => Sql::all(
+                'SELECT i.*, sp.level || \' \' || sp.name AS prodi FROM announcement_result_items i
+                 LEFT JOIN study_programs sp ON sp.id = i.study_program_id
+                 WHERE i.announcement_id = ? AND i.is_active ORDER BY i.display_order, i.id', [$hasil->id]
+            ),
+            'lampiran' => self::lampiran($hasil->id),
+        ]);
+    }
+
+    public function galeri()
+    {
+        return view('publik.galeri-index', [
+            'galeri' => Sql::paginate(
+                "SELECT g.*, (SELECT COUNT(*) FROM gallery_items i WHERE i.gallery_id = g.id AND i.is_active) AS jumlah_item
+                 FROM galleries g WHERE g.is_active = true AND g.status = 'published'
+                 ORDER BY g.event_date DESC NULLS LAST, g.id DESC", [], 12
+            ),
+        ]);
+    }
+
+    public function galeriDetail(int $id)
+    {
+        return view('publik.galeri-show', [
+            'galeri' => Sql::oneOrFail("SELECT * FROM galleries WHERE id = ? AND is_active = true AND status = 'published'", [$id]),
+            'items' => Sql::all('SELECT * FROM gallery_items WHERE gallery_id = ? AND is_active = true ORDER BY display_order, id', [$id]),
+        ]);
     }
 
     public function tentang()
     {
         return view('publik.tentang', [
-            'jenisKegiatan' => JenisKegiatan::orderBy('urutan')->get(),
+            'jenisKegiatan' => Sql::all('SELECT * FROM activity_types WHERE is_active = true ORDER BY display_order, name'),
+            'struktur' => Sql::all('SELECT * FROM organization_positions WHERE is_active = true ORDER BY display_order, position_name'),
+            'kontak' => Sql::all('SELECT * FROM contacts WHERE is_active = true ORDER BY display_order, name'),
         ]);
+    }
+
+    public static function cariLowongan(string $slug): object
+    {
+        return Sql::oneOrFail(Query::LOWONGAN . ' WHERE ' . Query::LOWONGAN_TERBIT . ' AND a.slug = ?', [$slug]);
+    }
+
+    public static function lampiran(int $announcementId): \Illuminate\Support\Collection
+    {
+        return Sql::all('SELECT * FROM announcement_attachments WHERE announcement_id = ? AND is_active = true ORDER BY id', [$announcementId]);
     }
 }

@@ -17,7 +17,7 @@
                     Seleksi dilakukan mitra; mitra akan menghubungi Anda langsung.
                 </p>
             </div>
-            <a href="{{ route('lowongan.index') }}" class="p-btn p-btn-primary">Cari Lowongan</a>
+            <a href="{{ route('portal.lowongan.index') }}" class="p-btn p-btn-primary">Cari Lowongan</a>
         </div>
 
         @if ($pendaftaran->isEmpty())
@@ -31,20 +31,20 @@
                     <tbody>
                         @foreach ($pendaftaran as $p)
                             <tr>
-                                <td><strong>{{ $p->lowongan->judul }}</strong><span class="p-muted">{{ $p->lowongan->mitra->nama ?? '-' }}</span></td>
-                                <td>{{ $p->lowongan->jenisKegiatan->nama ?? '-' }}</td>
-                                <td>{{ $p->created_at->format('d/m/Y H:i') }}</td>
-                                <td><span class="p-badge p-badge-{{ $p->status }}">{{ $p->status_label }}</span></td>
+                                <td><strong>{{ $p->vacancy_title }}</strong><span class="p-muted">{{ $p->partner_name }}</span></td>
+                                <td>{{ $p->activity_name }}</td>
+                                <td>{{ tgl($p->created_at, 'd/m/Y H:i') }}</td>
+                                <td><span class="p-badge p-badge-{{ $p->status }}">{{ \App\Support\Label::of(\App\Support\Label::APPLICATION_STATUS, $p->status) }}</span></td>
                                 <td>
                                     @switch($p->status)
-                                        @case('terdaftar') Menunggu diteruskan ke mitra. @break
-                                        @case('proses') Data Anda sedang diseleksi mitra. @break
-                                        @case('lulus') Selamat! Anda tercatat sebagai mahasiswa aktif PDLK. @break
-                                        @case('tidak_lulus') Belum lolos. Silakan coba lowongan lain. @break
+                                        @case('registered') Menunggu diteruskan ke mitra. @break
+                                        @case('processing') Data Anda sedang diseleksi mitra. @break
+                                        @case('passed') Selamat! Anda tercatat sebagai mahasiswa aktif PDLK. @break
+                                        @case('failed') Belum lolos. Silakan coba lowongan lain. @break
                                     @endswitch
-                                    @if ($p->catatan)<span class="p-muted">Catatan UPT: {{ $p->catatan }}</span>@endif
+                                    @if ($p->notes)<span class="p-muted">Catatan UPT: {{ $p->notes }}</span>@endif
                                 </td>
-                                <td><a href="{{ route('mahasiswa.pendaftaran.dokumen', $p) }}">Unduh</a></td>
+                                <td><a href="{{ route('mahasiswa.pendaftaran.dokumen', $p->id) }}">Unduh</a></td>
                             </tr>
                         @endforeach
                     </tbody>

@@ -2,23 +2,20 @@
 
 namespace App\Console\Commands;
 
-use App\Models\ProgramStudi;
-use App\Models\Role;
-use App\Models\User;
-use App\Models\UserRole;
+use App\Support\Sql;
 use Illuminate\Console\Command;
 
 /**
  * Memberikan peran awal, misalnya akun Staf UPT pertama:
- *   php artisan pdlk:beri-peran monalisa staf_upt
- *   php artisan pdlk:beri-peran hernawati koordinator_prodi --prodi=D3TI
- *   php artisan pdlk:beri-peran hernawati koordinator_prodi --prodi=D3TI --cabut
+ *   php artisan pdlk:beri-peran if324018 upt_staff
+ *   php artisan pdlk:beri-peran hernawati program_head --prodi=D3TI
+ *   php artisan pdlk:beri-peran hernawati program_head --prodi=D3TI --cabut
  */
 class BeriPeran extends Command
 {
     protected $signature = 'pdlk:beri-peran
         {username : Username CIS}
-        {peran : staf_upt | koordinator_pdlk_prodi | koordinator_prodi}
+        {peran : upt_staff | pdlk_coordinator | program_head}
         {--prodi= : Kode program studi (wajib untuk peran koordinator)}
         {--cabut : Cabut peran alih-alih memberikan}';
 
@@ -26,10 +23,10 @@ class BeriPeran extends Command
 
     public function handle(): int
     {
-        $role = Role::where('kode', $this->argument('peran'))->first();
+        $role = Sql::one('SELECT id, code, name FROM roles WHERE code = ?', [$this->argument('peran')]);
 
-        if (!$role || $role->kode === Role::MAHASISWA) {
-            $this->error('Peran tidak valid. Pilih: staf_upt, koordinator_pdlk_prodi, koordinator_prodi.');
+        if (!$role || $role->code === 'student') {
+            $this->error('Peran tidak valid. Pilih: upt_staff, pdlk_coordinator, program_head.');
 
             return self::FAILURE;
         }
@@ -37,37 +34,38 @@ class BeriPeran extends Command
         $prodiId = null;
 
         if ($this->option('prodi')) {
-            $prodiId = ProgramStudi::where('kode', strtoupper($this->option('prodi')))->value('id');
+            $prodiId = Sql::value('SELECT id FROM study_programs WHERE code = ?', [strtoupper($this->option('prodi'))]);
 
             if (!$prodiId) {
-                $this->error('Kode prodi tidak ditemukan. Tersedia: ' . ProgramStudi::pluck('kode')->implode(', '));
+                $this->error('Kode prodi tidak ditemukan. Tersedia: ' . Sql::all('SELECT code FROM study_programs ORDER BY code')->pluck('code')->implode(', '));
 
                 return self::FAILURE;
             }
-        } elseif ($role->kode !== Role::STAF_UPT) {
+        } elseif ($role->code !== 'upt_staff') {
             $this->error('Peran koordinator wajib disertai --prodi=KODE.');
 
             return self::FAILURE;
         }
 
         $username = $this->argument('username');
-
-        $user = User::firstOrCreate(
-            ['username' => $username],
-            ['name' => $username, 'email' => $username . '@belum-login.local']
-        );
-
-        $kunci = ['user_id' => $user->id, 'role_id' => $role->id, 'program_studi_id' => $prodiId];
+        $userId = Sql::value('SELECT id FROM users WHERE username = ?', [$username])
+            ?? Sql::insert('users', ['username' => $username, 'name' => $username]);
 
         if ($this->option('cabut')) {
-            UserRole::where($kunci)->delete();
-            $this->info("Peran {$role->nama} dicabut dari {$username}.");
+            \DB::delete(
+                'DELETE FROM user_roles WHERE user_id = ? AND role_id = ? AND study_program_id IS NOT DISTINCT FROM ?::bigint',
+                [$userId, $role->id, $prodiId]
+            );
+            $this->info("Peran {$role->name} dicabut dari {$username}.");
 
             return self::SUCCESS;
         }
 
-        UserRole::firstOrCreate($kunci);
-        $this->info("Peran {$role->nama} diberikan kepada {$username}. Berlaku setelah login ulang.");
+        \DB::insert(
+            'INSERT INTO user_roles (user_id, role_id, study_program_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING',
+            [$userId, $role->id, $prodiId]
+        );
+        $this->info("Peran {$role->name} diberikan kepada {$username}. Berlaku setelah login ulang.");
 
         return self::SUCCESS;
     }

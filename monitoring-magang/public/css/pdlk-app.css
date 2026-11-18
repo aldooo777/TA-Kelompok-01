@@ -231,3 +231,12 @@
     .p-extra-row { grid-template-columns: 1fr; }
     .p-card { padding: 18px; }
 }
+
+/* Kode status skema baru */
+.p-badge-registered, .p-badge-draft  { background: #eef1f5; color: #4a5a70; }
+.p-badge-processing                  { background: #fff3d6; color: #8a6100; }
+.p-badge-passed, .p-badge-active,
+.p-badge-published                   { background: #e3f5ea; color: #1f7a45; }
+.p-badge-failed, .p-badge-inactive,
+.p-badge-archived                    { background: #fdecea; color: #b03a2e; }
+.p-badge-completed                   { background: var(--accent-soft, #e7f3fa); color: var(--accent-dark, #24749b); }

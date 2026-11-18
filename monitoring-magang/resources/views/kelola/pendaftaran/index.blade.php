@@ -9,7 +9,7 @@
     @include('partials.flash')
 
     <div class="p-stats">
-        @foreach (\App\Models\Pendaftaran::STATUS as $kode => $label)
+        @foreach (\App\Support\Label::APPLICATION_STATUS as $kode => $label)
             <a class="p-stat" style="color:inherit" href="{{ route('kelola.pendaftaran.index', array_merge(request()->except('page'), ['status' => $kode])) }}">
                 <div class="p-stat-label">{{ $label }}</div>
                 <div class="p-stat-value">{{ $statistik[$kode] ?? 0 }}</div>
@@ -36,7 +36,7 @@
                 <select id="lowongan" name="lowongan" class="p-select">
                     <option value="">Semua lowongan</option>
                     @foreach ($lowonganList as $l)
-                        <option value="{{ $l->id }}" @selected((int) request('lowongan') === $l->id)>{{ $l->judul }}</option>
+                        <option value="{{ $l->id }}" @selected((int) request('lowongan') === (int) $l->id)>{{ $l->title }}</option>
                     @endforeach
                 </select>
             </div>
@@ -44,7 +44,7 @@
                 <label for="status">Status</label>
                 <select id="status" name="status" class="p-select">
                     <option value="">Semua status</option>
-                    @foreach (\App\Models\Pendaftaran::STATUS as $kode => $label)
+                    @foreach (\App\Support\Label::APPLICATION_STATUS as $kode => $label)
                         <option value="{{ $kode }}" @selected(request('status') === $kode)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -64,8 +64,8 @@
                 <div class="p-toolbar" style="margin-bottom:10px">
                     <span class="p-muted">Untuk yang dicentang:</span>
                     <select name="status" class="p-select" style="max-width:200px">
-                        @foreach (\App\Models\Pendaftaran::STATUS as $kode => $label)
-                            <option value="{{ $kode }}" @selected($kode === 'proses')>{{ $label }}</option>
+                        @foreach (\App\Support\Label::APPLICATION_STATUS as $kode => $label)
+                            <option value="{{ $kode }}" @selected($kode === 'processing')>{{ $label }}</option>
                         @endforeach
                     </select>
                     <button class="p-btn p-btn-light p-btn-sm">Terapkan ke yang dipilih</button>
@@ -85,27 +85,27 @@
                             <tr>
                                 <td><input type="checkbox" name="ids[]" value="{{ $p->id }}" form="formMassal" class="pilih"></td>
                                 <td>
-                                    <strong>{{ $p->nama }}</strong>
-                                    <span class="p-muted">{{ $p->nim }} · {{ $p->programStudi->label ?? '-' }}</span>
-                                    @foreach ($p->jawaban_tambahan ?? [] as $label => $jawab)
+                                    <strong>{{ $p->name }}</strong>
+                                    <span class="p-muted">{{ $p->nim }} · {{ $p->prodi_level }} {{ $p->prodi_name }}</span>
+                                    @foreach ((array) json_decode((string) $p->additional_answers, true) as $label => $jawab)
                                         <span class="p-muted">{{ $label }}: {{ $jawab }}</span>
                                     @endforeach
                                 </td>
-                                <td>{{ $p->lowongan->judul }}<span class="p-muted">{{ $p->lowongan->mitra->nama ?? '' }}</span></td>
-                                <td>Smt {{ $p->semester }}<span class="p-muted">IPK {{ number_format((float) $p->ipk, 2) }}</span></td>
-                                <td>{{ $p->no_hp }}<span class="p-muted">{{ $p->email }}</span></td>
-                                <td><a href="{{ route('kelola.pendaftaran.dokumen', $p) }}">PDF</a></td>
+                                <td>{{ $p->vacancy_title }}<span class="p-muted">{{ $p->partner_name }}</span></td>
+                                <td>Smt {{ $p->semester }}<span class="p-muted">IPK {{ number_format((float) $p->gpa, 2) }}</span></td>
+                                <td>{{ $p->phone }}<span class="p-muted">{{ $p->email }}</span></td>
+                                <td><a href="{{ route('kelola.pendaftaran.dokumen', $p->id) }}">PDF</a></td>
                                 <td style="min-width:210px">
-                                    <form method="POST" action="{{ route('kelola.pendaftaran.status', $p) }}" style="display:flex;gap:6px;flex-wrap:wrap">
+                                    <form method="POST" action="{{ route('kelola.pendaftaran.status', $p->id) }}" style="display:flex;gap:6px;flex-wrap:wrap">
                                         @csrf @method('PATCH')
                                         <select name="status" class="p-select" style="min-height:32px;padding:4px 8px;max-width:130px">
-                                            @foreach (\App\Models\Pendaftaran::STATUS as $kode => $label)
+                                            @foreach (\App\Support\Label::APPLICATION_STATUS as $kode => $label)
                                                 <option value="{{ $kode }}" @selected($p->status === $kode)>{{ $label }}</option>
                                             @endforeach
                                         </select>
                                         <button class="p-btn p-btn-light p-btn-sm">Simpan</button>
                                     </form>
-                                    <span class="p-badge p-badge-{{ $p->status }}" style="margin-top:6px">{{ $p->status_label }}</span>
+                                    <span class="p-badge p-badge-{{ $p->status }}" style="margin-top:6px">{{ \App\Support\Label::of(\App\Support\Label::APPLICATION_STATUS, $p->status) }}</span>
                                 </td>
                             </tr>
                         @endforeach

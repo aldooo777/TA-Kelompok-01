@@ -2,8 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\PesertaPdlk;
-use App\Models\User;
 use App\Services\CisService;
 
 /**
@@ -11,8 +9,7 @@ use App\Services\CisService;
  *
  * Login CIS lama tidak selalu mengirim NIM, sehingga NIM diverifikasi
  * dengan mencocokkan email akun login dengan data mahasiswa di CIS.
- * Setelah terverifikasi, NIM disimpan di tabel users agar pencarian
- * ke CIS tidak perlu diulang.
+ * Setelah terverifikasi, NIM disimpan di tabel users.
  */
 class NimMahasiswa
 {
@@ -25,7 +22,7 @@ class NimMahasiswa
         $nim = trim((string) (session('cis_user')['nim'] ?? ''));
 
         if ($nim !== '') {
-            $this->lengkapiProdiSekali(Peran::user(), $nim);
+            $this->lengkapiSekali(Peran::user(), $nim);
 
             return $nim;
         }
@@ -39,18 +36,14 @@ class NimMahasiswa
             return $user->nim;
         }
 
-        // Coba cocokkan dengan NIM mahasiswa aktif yang diinput UPT/koordinator.
+        // Cocokkan dengan NIM mahasiswa aktif yang diinput manual oleh UPT/koordinator.
         $email = $this->emailLogin();
 
         if ($email === '' || !$user) {
             return null;
         }
 
-        $kandidat = PesertaPdlk::query()
-            ->whereNull('user_id')
-            ->pluck('nim')
-            ->unique()
-            ->take(200);
+        $kandidat = Sql::all('SELECT DISTINCT nim FROM pdlk_participants WHERE user_id IS NULL LIMIT 200')->pluck('nim');
 
         foreach ($kandidat as $nimKandidat) {
             try {
@@ -100,18 +93,20 @@ class NimMahasiswa
     }
 
     /**
-     * Data lama / input manual bisa belum memiliki prodi sehingga tidak
-     * tampil di halaman koordinator. Lengkapi dari data mahasiswa di CIS.
+     * Data input manual bisa belum memiliki prodi sehingga tidak tampil
+     * di halaman koordinator. Lengkapi dari data mahasiswa di CIS.
      */
-    public function lengkapiProdi(?User $user, string $nim): void
+    public function lengkapiProdi(?object $user, string $nim): void
     {
-        $perluDiisi = PesertaPdlk::where('nim', $nim)->whereNull('program_studi_id')->exists();
+        $perluDiisi = (bool) Sql::value(
+            'SELECT EXISTS (SELECT 1 FROM pdlk_participants WHERE nim = ? AND study_program_id IS NULL)', [$nim]
+        );
 
-        if (!$perluDiisi && $user?->program_studi_id) {
+        if (!$perluDiisi && $user?->study_program_id) {
             return;
         }
 
-        $prodiId = $user?->program_studi_id;
+        $prodiId = $user?->study_program_id;
 
         if (!$prodiId) {
             try {
@@ -120,22 +115,22 @@ class NimMahasiswa
                 return;
             }
 
-            $prodiId = \App\Models\ProgramStudi::dariTeksCis($mhs['prodi'] ?? null)?->id;
+            $prodiId = Prodi::dariTeksCis($mhs['prodi'] ?? null);
         }
 
         if (!$prodiId) {
             return;
         }
 
-        PesertaPdlk::where('nim', $nim)->whereNull('program_studi_id')->update(['program_studi_id' => $prodiId]);
+        \DB::update('UPDATE pdlk_participants SET study_program_id = ? WHERE nim = ? AND study_program_id IS NULL', [$prodiId, $nim]);
 
-        if ($user && !$user->program_studi_id) {
-            $user->forceFill(['program_studi_id' => $prodiId])->save();
+        if ($user && !$user->study_program_id) {
+            Sql::update('users', $user->id, ['study_program_id' => $prodiId]);
         }
     }
 
     /** Cukup sekali per sesi agar tidak memanggil CIS di setiap halaman. */
-    private function lengkapiProdiSekali(?User $user, string $nim): void
+    private function lengkapiSekali(?object $user, string $nim): void
     {
         if (session('prodi_dicek')) {
             return;
@@ -150,15 +145,15 @@ class NimMahasiswa
         return strtolower(trim((string) (session('cis_user')['email'] ?? '')));
     }
 
-    private function simpan(User $user, string $nim, ?string $nama): void
+    private function simpan(object $user, string $nim, ?string $nama): void
     {
         if ($user->nim !== $nim || ($nama && $user->name !== $nama)) {
-            $user->forceFill(['nim' => $nim] + ($nama ? ['name' => $nama] : []))->save();
+            Sql::update('users', $user->id, ['nim' => $nim] + ($nama ? ['name' => $nama] : []));
         }
 
-        PesertaPdlk::where('nim', $nim)->whereNull('user_id')->update(['user_id' => $user->id]);
+        \DB::update('UPDATE pdlk_participants SET user_id = ? WHERE nim = ? AND user_id IS NULL', [$user->id, $nim]);
 
-        $this->lengkapiProdi($user, $nim);
+        $this->lengkapiProdi(Peran::user() ?? $user, $nim);
 
         $cis = session('cis_user', []);
         $cis['nim'] = $nim;

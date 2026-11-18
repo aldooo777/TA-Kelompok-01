@@ -3,141 +3,186 @@
 namespace App\Http\Controllers\Kelola;
 
 use App\Http\Controllers\Controller;
-use App\Models\JenisKegiatan;
-use App\Models\Lowongan;
-use App\Models\LowonganFieldTambahan;
-use App\Models\Mitra;
-use App\Models\Pendaftaran;
-use App\Support\Peran;
+use App\Support\Label;
+use App\Support\Lampiran;
+use App\Support\Query;
+use App\Support\Sql;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 /**
- * Pengelolaan lowongan PDLK oleh Staf UPT.
- * Formulir pendaftaran sama untuk semua lowongan; Staf UPT hanya dapat
- * menambahkan isian tambahan yang TIDAK wajib sesuai permintaan mitra.
+ * Lowongan PDLK oleh Staf UPT, query SQL langsung:
+ * announcements (type = 'vacancy') + vacancy_details + vacancy_additional_fields.
  */
 class LowonganController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $lowongan = Lowongan::with(['mitra', 'jenisKegiatan'])
-            ->withCount('pendaftaran')
-            ->withCount(['pendaftaran as pendaftar_baru_count' => fn ($q) => $q->where('status', Pendaftaran::TERDAFTAR)])
-            ->latest()
-            ->paginate(15);
+        $lowongan = Sql::paginate(
+            "SELECT x.*,
+                    (SELECT COUNT(*) FROM applications ap WHERE ap.vacancy_id = x.id AND ap.is_active) AS jumlah_pendaftar,
+                    (SELECT COUNT(*) FROM applications ap WHERE ap.vacancy_id = x.id AND ap.is_active AND ap.status = 'registered') AS jumlah_baru
+             FROM (" . Query::LOWONGAN . " WHERE v.is_active = true) AS x
+             ORDER BY x.created_at DESC",
+            [], 15
+        );
 
         return view('kelola.lowongan.index', compact('lowongan'));
     }
 
     public function create()
     {
-        return view('kelola.lowongan.form', [
-            'lowongan' => new Lowongan(['is_published' => true]),
-            'jenisKegiatan' => JenisKegiatan::orderBy('urutan')->get(),
-            'mitraList' => Mitra::orderBy('nama')->pluck('nama'),
-        ]);
+        return view('kelola.lowongan.form', $this->dataForm(null));
     }
 
     public function store(Request $request)
     {
-        $data = $this->validasi($request);
+        [$pengumuman, $detail] = $this->validasi($request);
 
-        DB::transaction(function () use ($request, $data) {
-            $lowongan = Lowongan::create($data);
-            $this->simpanFieldTambahan($lowongan, $request->input('field_tambahan', []));
+        Sql::transaction(function () use ($request, $pengumuman, $detail) {
+            $aId = Sql::insert('announcements', $pengumuman + [
+                'type' => 'vacancy',
+                'slug' => Query::slugUnik($pengumuman['title']),
+                'published_at' => $pengumuman['status'] === 'published' ? now() : null,
+            ]);
+            $vId = Sql::insert('vacancy_details', $detail + ['announcement_id' => $aId]);
+            $this->simpanFieldTambahan($vId, $request->input('field_tambahan', []));
+            Lampiran::simpan($request, $aId);
         });
 
-        return redirect()->route('kelola.lowongan.index')->with('success', 'Lowongan berhasil dipublikasikan.');
+        return redirect()->route('kelola.lowongan.index')->with('success', 'Lowongan berhasil disimpan.');
     }
 
-    public function edit(Lowongan $lowongan)
+    public function edit(int $id)
     {
-        return view('kelola.lowongan.form', [
-            'lowongan' => $lowongan->load('fieldTambahan', 'mitra'),
-            'jenisKegiatan' => JenisKegiatan::orderBy('urutan')->get(),
-            'mitraList' => Mitra::orderBy('nama')->pluck('nama'),
-        ]);
+        return view('kelola.lowongan.form', $this->dataForm($this->cari($id)));
     }
 
-    public function update(Request $request, Lowongan $lowongan)
+    public function update(Request $request, int $id)
     {
-        $data = $this->validasi($request, $lowongan);
+        $lowongan = $this->cari($id);
+        [$pengumuman, $detail] = $this->validasi($request, $lowongan);
 
-        DB::transaction(function () use ($request, $data, $lowongan) {
-            $lowongan->update($data);
-            $this->simpanFieldTambahan($lowongan, $request->input('field_tambahan', []));
+        if ($pengumuman['status'] === 'published' && !$lowongan->published_at) {
+            $pengumuman['published_at'] = now();
+        }
+
+        Sql::transaction(function () use ($request, $pengumuman, $detail, $lowongan) {
+            Sql::update('announcements', $lowongan->announcement_id, $pengumuman);
+            Sql::update('vacancy_details', $lowongan->id, $detail);
+            $this->simpanFieldTambahan($lowongan->id, $request->input('field_tambahan', []));
+            Lampiran::simpan($request, $lowongan->announcement_id);
         });
 
         return redirect()->route('kelola.lowongan.index')->with('success', 'Lowongan berhasil diperbarui.');
     }
 
-    public function destroy(Lowongan $lowongan)
+    /** Diarsipkan agar data pendaftar tetap utuh. */
+    public function destroy(int $id)
     {
-        if ($lowongan->pendaftaran()->exists()) {
-            $lowongan->update(['is_published' => false]);
+        $lowongan = $this->cari($id);
 
-            return back()->with('warning', 'Lowongan sudah memiliki pendaftar sehingga tidak dihapus, tetapi disembunyikan dari halaman publik.');
-        }
+        Sql::transaction(function () use ($lowongan) {
+            Sql::update('vacancy_details', $lowongan->id, ['is_active' => false, 'is_closed' => true]);
+            Sql::update('announcements', $lowongan->announcement_id, ['status' => 'archived', 'is_active' => false]);
+        });
 
-        if ($lowongan->poster_path) {
-            Storage::disk('public')->delete($lowongan->poster_path);
-        }
-
-        $lowongan->delete();
-
-        return back()->with('success', 'Lowongan dihapus.');
+        return back()->with('success', 'Lowongan diarsipkan dan tidak tampil lagi di halaman publik.');
     }
 
-    private function validasi(Request $request, ?Lowongan $lowongan = null): array
+    private function cari(int $id): object
+    {
+        return Sql::oneOrFail(Query::LOWONGAN . ' WHERE v.id = ?', [$id]);
+    }
+
+    private function dataForm(?object $lowongan): array
+    {
+        return [
+            'lowongan' => $lowongan,
+            'fields' => $lowongan
+                ? Sql::all('SELECT label, field_type FROM vacancy_additional_fields WHERE vacancy_id = ? AND is_active = true ORDER BY display_order', [$lowongan->id])
+                : collect(),
+            'lampiran' => $lowongan ? Lampiran::daftar($lowongan->announcement_id) : collect(),
+            'jenisKegiatan' => Query::opsi('activity_types', 'name', 'display_order, name'),
+            'periodeList' => Query::opsi('periods', 'name', 'start_date DESC'),
+            'mitraList' => Sql::all('SELECT name FROM partners WHERE is_active = true ORDER BY name')->pluck('name'),
+        ];
+    }
+
+    /** @return array{0: array, 1: array} kolom announcements dan vacancy_details */
+    private function validasi(Request $request, ?object $lowongan = null): array
     {
         $data = $request->validate([
-            'judul' => ['required', 'string', 'max:200'],
+            'title' => ['required', 'string', 'max:200'],
+            'summary' => ['nullable', 'string', 'max:255'],
+            'content' => ['required', 'string', 'max:10000'],
             'nama_mitra' => ['required', 'string', 'max:200'],
-            'jenis_kegiatan_id' => ['required', 'exists:jenis_kegiatan_pdlk,id'],
-            'posisi' => ['nullable', 'string', 'max:150'],
-            'lokasi' => ['nullable', 'string', 'max:150'],
-            'deskripsi' => ['required', 'string', 'max:10000'],
-            'kriteria' => ['required', 'string', 'max:10000'],
-            'kuota' => ['nullable', 'integer', 'min:1', 'max:10000'],
-            'tanggal_buka' => ['nullable', 'date'],
-            'tanggal_tutup' => ['nullable', 'date', 'after_or_equal:tanggal_buka'],
-            'poster' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'activity_type_id' => ['required', 'exists:activity_types,id'],
+            'period_id' => ['nullable', 'exists:periods,id'],
+            'position' => ['nullable', 'string', 'max:150'],
+            'location' => ['nullable', 'string', 'max:150'],
+            'criteria' => ['required', 'string', 'max:10000'],
+            'quota' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'registration_type' => ['required', Rule::in(array_keys(Label::REGISTRATION_TYPE))],
+            'external_url' => ['nullable', 'required_if:registration_type,external', 'url', 'max:255'],
+            'registration_start_date' => ['nullable', 'date'],
+            'registration_deadline' => ['nullable', 'date', 'after_or_equal:registration_start_date'],
+            'expired_at' => ['nullable', 'date'],
+            'cover' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'field_tambahan' => ['nullable', 'array', 'max:10'],
             'field_tambahan.*.label' => ['nullable', 'string', 'max:150'],
-            'field_tambahan.*.tipe' => ['nullable', Rule::in(array_keys(LowonganFieldTambahan::TIPE))],
-        ], [
-            'tanggal_tutup.after_or_equal' => 'Tanggal tutup tidak boleh sebelum tanggal buka.',
+            'field_tambahan.*.field_type' => ['nullable', Rule::in(array_keys(Label::FIELD_TYPE))],
+        ] + Lampiran::RULES, [
+            'registration_deadline.after_or_equal' => 'Batas pendaftaran tidak boleh sebelum tanggal buka.',
             'nama_mitra.required' => 'Nama mitra wajib diisi.',
+            'external_url.required_if' => 'Tautan pendaftaran mitra wajib diisi untuk pendaftaran eksternal.',
         ]);
 
-        $data['mitra_id'] = Mitra::dariNama($data['nama_mitra'])->id;
-        $data['is_published'] = $request->boolean('is_published');
+        $pengumuman = [
+            'title' => $data['title'],
+            'summary' => $data['summary'] ?? null,
+            'content' => $data['content'],
+            'expired_at' => $data['expired_at'] ?? null,
+            'status' => $request->boolean('terbit') ? 'published' : 'draft',
+        ];
 
-        if ($request->hasFile('poster')) {
-            if ($lowongan?->poster_path) {
-                Storage::disk('public')->delete($lowongan->poster_path);
+        $cover = $lowongan?->cover_image;
+        if ($request->hasFile('cover')) {
+            if ($cover) {
+                Storage::disk('public')->delete($cover);
             }
-            $data['poster_path'] = $request->file('poster')->store('lowongan', 'public');
-        } elseif ($request->boolean('hapus_poster') && $lowongan?->poster_path) {
-            Storage::disk('public')->delete($lowongan->poster_path);
-            $data['poster_path'] = null;
+            $pengumuman['cover_image'] = $request->file('cover')->store('lowongan', 'public');
+        } elseif ($request->boolean('hapus_cover') && $cover) {
+            Storage::disk('public')->delete($cover);
+            $pengumuman['cover_image'] = null;
         }
 
-        unset($data['nama_mitra'], $data['poster'], $data['field_tambahan']);
+        $eksternal = $data['registration_type'] === 'external';
 
-        return $data;
+        $detail = [
+            'partner_id' => Query::mitraDariNama($data['nama_mitra']),
+            'activity_type_id' => $data['activity_type_id'],
+            'period_id' => $data['period_id'] ?? null,
+            'position' => $data['position'] ?? null,
+            'location' => $data['location'] ?? null,
+            'criteria' => $data['criteria'],
+            'quota' => $data['quota'] ?? null,
+            'registration_type' => $data['registration_type'],
+            'external_url' => $eksternal ? $data['external_url'] : null,
+            'registration_start_date' => $data['registration_start_date'] ?? null,
+            'registration_deadline' => $data['registration_deadline'] ?? null,
+            'is_closed' => $request->boolean('is_closed'),
+        ];
+
+        return [$pengumuman, $detail];
     }
 
-    /**
-     * Ganti daftar isian tambahan. Jawaban lama tetap aman karena disimpan
-     * per pendaftaran dalam bentuk label => jawaban.
-     */
-    private function simpanFieldTambahan(Lowongan $lowongan, array $rows): void
+    /** Ganti daftar isian tambahan (selalu tidak wajib). Jawaban lama tetap aman (disimpan label => jawaban). */
+    private function simpanFieldTambahan(int $vacancyId, array $rows): void
     {
-        $lowongan->fieldTambahan()->delete();
+        DB::delete('DELETE FROM vacancy_additional_fields WHERE vacancy_id = ?', [$vacancyId]);
 
         $urutan = 0;
         foreach ($rows as $row) {
@@ -145,10 +190,12 @@ class LowonganController extends Controller
             if ($label === '') {
                 continue;
             }
-            $lowongan->fieldTambahan()->create([
+            Sql::insert('vacancy_additional_fields', [
+                'vacancy_id' => $vacancyId,
                 'label' => $label,
-                'tipe' => $row['tipe'] ?? 'text',
-                'urutan' => ++$urutan,
+                'field_type' => $row['field_type'] ?? 'text',
+                'is_required' => false,
+                'display_order' => ++$urutan,
             ]);
         }
     }

@@ -3,90 +3,86 @@
 namespace App\Http\Controllers\Mahasiswa;
 
 use App\Http\Controllers\Controller;
-use App\Models\Lowongan;
-use App\Models\Pendaftaran;
-use App\Models\ProgramStudi;
+use App\Http\Controllers\PublikController;
 use App\Support\NimMahasiswa;
 use App\Support\Peran;
+use App\Support\Query;
+use App\Support\Sql;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * Pendaftaran lowongan oleh mahasiswa (PB-04) dan progres pendaftaran (PB-05).
- */
+/** Pendaftaran lowongan oleh mahasiswa (applications), query SQL langsung. */
 class PendaftaranController extends Controller
 {
     public function index()
     {
         $user = Peran::user();
 
-        $pendaftaran = Pendaftaran::with(['lowongan.mitra', 'lowongan.jenisKegiatan'])
-            ->where(function ($q) use ($user) {
-                $q->where('user_id', $user?->id);
-                if ($user?->nim) {
-                    $q->orWhere('nim', $user->nim);
-                }
-            })
-            ->latest()
-            ->get();
-
-        return view('mahasiswa.pendaftaran.index', compact('pendaftaran'));
+        return view('mahasiswa.pendaftaran.index', [
+            'pendaftaran' => Sql::all(
+                Query::PENDAFTARAN . ' WHERE ap.user_id = ? OR (?::text IS NOT NULL AND ap.nim = ?) ORDER BY ap.created_at DESC',
+                [$user?->id ?? 0, $user?->nim, $user?->nim]
+            ),
+        ]);
     }
 
     public function create(string $slug, NimMahasiswa $nimMahasiswa)
     {
-        $lowongan = Lowongan::terbit()->with(['mitra', 'jenisKegiatan', 'fieldTambahan'])
-            ->where('slug', $slug)->firstOrFail();
+        $lowongan = PublikController::cariLowongan($slug);
 
-        if (!$lowongan->dibuka) {
-            return redirect()->route('lowongan.show', $slug)->with('warning', 'Pendaftaran untuk lowongan ini sudah ditutup.');
+        if ($redirect = $this->tolakJikaTidakBisa($lowongan)) {
+            return $redirect;
         }
 
         $user = Peran::user();
         $nim = $nimMahasiswa->sesiIni();
 
-        if ($this->sudahMendaftar($lowongan, $user?->id, $nim)) {
-            return redirect()->route('mahasiswa.pendaftaran.index')
-                ->with('warning', 'Anda sudah mendaftar pada lowongan ini. Pantau statusnya di bawah.');
+        if ($this->sudahMendaftar($lowongan->id, $user?->id, $nim)) {
+            return redirect($this->halamanSetelahDaftar())
+                ->with('warning', 'Anda sudah mendaftar pada lowongan ini.');
         }
 
+        $user = Peran::user();
         $cis = session('cis_user', []);
 
         return view('mahasiswa.pendaftaran.create', [
             'lowongan' => $lowongan,
-            'prodiList' => ProgramStudi::orderBy('jenjang')->orderBy('nama')->get(),
+            'fields' => $this->fields($lowongan->id),
+            'prodiList' => Query::opsiProdi(),
             'awal' => [
                 'nim' => $nim,
                 'nama' => $cis['nama'] ?? $user?->name,
                 'email' => $cis['email'] ?? $user?->email,
-                'program_studi_id' => $user?->program_studi_id,
+                'study_program_id' => $user?->study_program_id,
             ],
         ]);
     }
 
     public function store(Request $request, string $slug, NimMahasiswa $nimMahasiswa)
     {
-        $lowongan = Lowongan::terbit()->with('fieldTambahan')->where('slug', $slug)->firstOrFail();
+        $lowongan = PublikController::cariLowongan($slug);
 
-        abort_unless($lowongan->dibuka, 403, 'Pendaftaran untuk lowongan ini sudah ditutup.');
+        if ($redirect = $this->tolakJikaTidakBisa($lowongan)) {
+            return $redirect;
+        }
 
         $data = $request->validate([
             'nim' => ['required', 'string', 'max:30'],
-            'program_studi_id' => ['required', 'exists:program_studi,id'],
+            'study_program_id' => ['required', 'exists:study_programs,id'],
             'semester' => ['required', 'integer', 'min:1', 'max:14'],
-            'ipk' => ['required', 'numeric', 'min:0', 'max:4'],
-            'no_hp' => ['required', 'string', 'regex:/^(\+62|62|0)8[0-9]{7,12}$/'],
+            'gpa' => ['required', 'numeric', 'min:0', 'max:4'],
+            'phone' => ['required', 'string', 'regex:/^(\+62|62|0)8[0-9]{7,12}$/'],
             'email' => ['required', 'email', 'max:150'],
             'dokumen' => ['required', 'file', 'mimes:pdf', 'max:10240'],
             'tambahan' => ['nullable', 'array'],
             'tambahan.*' => ['nullable', 'string', 'max:2000'],
             'persetujuan' => ['accepted'],
         ], [
-            'no_hp.regex' => 'Nomor HP tidak valid. Contoh: 081234567890.',
+            'phone.regex' => 'Nomor HP tidak valid. Contoh: 081234567890.',
             'dokumen.mimes' => 'Dokumen harus berupa satu file PDF.',
             'dokumen.max' => 'Ukuran dokumen maksimal 10 MB.',
             'persetujuan.accepted' => 'Centang pernyataan bahwa data yang diisi sudah benar.',
-            'ipk.max' => 'IPK maksimal 4.00.',
+            'gpa.max' => 'IPK maksimal 4.00.',
         ]);
 
         // NIM harus milik akun yang sedang login (dicek ke CIS).
@@ -99,15 +95,13 @@ class PendaftaranController extends Controller
         $mhs = $cek['mahasiswa'];
         $user = Peran::user();
 
-        if ($this->sudahMendaftar($lowongan, $user?->id, (string) $mhs['nim'])) {
-            return redirect()->route('mahasiswa.pendaftaran.index')
-                ->with('warning', 'Anda sudah mendaftar pada lowongan ini.');
+        if ($this->sudahMendaftar($lowongan->id, $user?->id, (string) $mhs['nim'])) {
+            return redirect($this->halamanSetelahDaftar())->with('warning', 'Anda sudah mendaftar pada lowongan ini.');
         }
 
-        // Simpan isian tambahan sebagai label => jawaban agar tetap terbaca
-        // walaupun Staf UPT mengubah isian tambahan setelahnya.
+        // Simpan sebagai label => jawaban agar tetap terbaca walau isian tambahan diubah.
         $jawaban = [];
-        foreach ($lowongan->fieldTambahan as $field) {
+        foreach ($this->fields($lowongan->id) as $field) {
             $nilai = trim((string) ($data['tambahan'][$field->id] ?? ''));
             if ($nilai !== '') {
                 $jawaban[$field->label] = $nilai;
@@ -115,53 +109,70 @@ class PendaftaranController extends Controller
         }
 
         $file = $request->file('dokumen');
-        $path = $file->store("pendaftaran/{$lowongan->id}", 'local');
 
-        Pendaftaran::create([
-            'lowongan_id' => $lowongan->id,
+        Sql::insert('applications', [
+            'vacancy_id' => $lowongan->id,
             'user_id' => $user?->id,
             'nim' => (string) $mhs['nim'],
-            'nama' => $mhs['nama'] ?? (session('cis_user')['nama'] ?? $user?->name),
-            'program_studi_id' => $data['program_studi_id'],
+            'name' => $mhs['nama'] ?? (session('cis_user')['nama'] ?? $user?->name),
+            'study_program_id' => $data['study_program_id'],
             'semester' => $data['semester'],
-            'ipk' => $data['ipk'],
-            'no_hp' => $data['no_hp'],
+            'gpa' => $data['gpa'],
+            'phone' => $data['phone'],
             'email' => $data['email'],
-            'dokumen_path' => $path,
-            'dokumen_nama_asli' => mb_substr($file->getClientOriginalName(), 0, 255),
-            'jawaban_tambahan' => $jawaban ?: null,
-            'status' => Pendaftaran::TERDAFTAR,
+            'document_path' => $file->store("pendaftaran/{$lowongan->id}", 'local'),
+            'document_original_name' => mb_substr($file->getClientOriginalName(), 0, 255),
+            'additional_answers' => $jawaban ?: null,
+            'status' => 'registered',
         ]);
 
-        if ($user && !$user->program_studi_id) {
-            $user->forceFill(['program_studi_id' => $data['program_studi_id']])->save();
+        if ($user && !$user->study_program_id) {
+            Sql::update('users', $user->id, ['study_program_id' => $data['study_program_id']]);
         }
 
-        return redirect()->route('mahasiswa.pendaftaran.index')
+        return redirect($this->halamanSetelahDaftar())
             ->with('success', 'Pendaftaran berhasil dikirim. Status awal: Terdaftar.');
     }
 
-    public function dokumen(Pendaftaran $pendaftaran)
+    /** Halaman progres pendaftaran (PB-05) baru ada mulai Sprint 2; sebelumnya kembali ke dashboard. */
+    private function halamanSetelahDaftar(): string
     {
-        $user = Peran::user();
-
-        abort_unless(
-            $pendaftaran->user_id === $user?->id || ($user?->nim && $pendaftaran->nim === $user->nim),
-            403
-        );
-
-        return Storage::disk('local')->download($pendaftaran->dokumen_path, $pendaftaran->dokumen_nama_asli);
+        return sprint(2) ? route('mahasiswa.pendaftaran.index') : route('dashboard');
     }
 
-    private function sudahMendaftar(Lowongan $lowongan, ?int $userId, ?string $nim): bool
+    public function dokumen(int $id)
     {
-        return Pendaftaran::where('lowongan_id', $lowongan->id)
-            ->where(function ($q) use ($userId, $nim) {
-                $q->where('user_id', $userId ?? 0);
-                if ($nim) {
-                    $q->orWhere('nim', $nim);
-                }
-            })
-            ->exists();
+        $user = Peran::user();
+        $ap = Sql::oneOrFail('SELECT * FROM applications WHERE id = ?', [$id]);
+
+        abort_unless((int) $ap->user_id === (int) $user?->id || ($user?->nim && $ap->nim === $user->nim), 403);
+
+        return Storage::disk('local')->download($ap->document_path, $ap->document_original_name);
+    }
+
+    private function fields(int $vacancyId): \Illuminate\Support\Collection
+    {
+        return Sql::all('SELECT * FROM vacancy_additional_fields WHERE vacancy_id = ? AND is_active = true ORDER BY display_order', [$vacancyId]);
+    }
+
+    private function tolakJikaTidakBisa(object $lowongan)
+    {
+        if ($lowongan->registration_type === 'external') {
+            return redirect()->away($lowongan->external_url);
+        }
+
+        if (!lowongan_dibuka($lowongan)) {
+            return redirect()->route('portal.lowongan.show', $lowongan->slug)->with('warning', 'Pendaftaran untuk lowongan ini sudah ditutup.');
+        }
+
+        return null;
+    }
+
+    private function sudahMendaftar(int $vacancyId, ?int $userId, ?string $nim): bool
+    {
+        return (bool) Sql::value(
+            'SELECT EXISTS (SELECT 1 FROM applications WHERE vacancy_id = ? AND (user_id = ? OR nim = ?))',
+            [$vacancyId, $userId ?? 0, $nim ?? '']
+        );
     }
 }

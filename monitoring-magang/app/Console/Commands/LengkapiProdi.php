@@ -2,17 +2,17 @@
 
 namespace App\Console\Commands;
 
-use App\Models\PesertaPdlk;
-use App\Models\ProgramStudi;
 use App\Services\CisService;
+use App\Support\Prodi;
+use App\Support\Sql;
 use Illuminate\Console\Command;
 
 /**
- * Mengisi prodi mahasiswa aktif yang masih kosong (data lama / input manual)
- * berdasarkan data mahasiswa di CIS, agar tampil di halaman koordinator.
+ * Mengisi prodi mahasiswa aktif yang masih kosong berdasarkan data CIS,
+ * agar tampil di halaman koordinator.
  *
  *   php artisan pdlk:lengkapi-prodi
- *   php artisan pdlk:lengkapi-prodi --nim=42324032 --prodi=D4TRPL   (isi manual)
+ *   php artisan pdlk:lengkapi-prodi --nim=42324032 --prodi=D3TI   (isi manual)
  */
 class LengkapiProdi extends Command
 {
@@ -25,23 +25,24 @@ class LengkapiProdi extends Command
     public function handle(CisService $cis): int
     {
         if ($this->option('prodi')) {
-            $prodi = ProgramStudi::where('kode', strtoupper($this->option('prodi')))->first();
+            $prodi = Sql::one('SELECT id, level, name FROM study_programs WHERE code = ?', [strtoupper($this->option('prodi'))]);
 
             if (!$prodi || !$this->option('nim')) {
-                $this->error('Gunakan --nim=NIM --prodi=KODE. Kode tersedia: ' . ProgramStudi::pluck('kode')->implode(', '));
+                $this->error('Gunakan --nim=NIM --prodi=KODE. Kode tersedia: ' . Sql::all('SELECT code FROM study_programs ORDER BY code')->pluck('code')->implode(', '));
 
                 return self::FAILURE;
             }
 
-            $n = PesertaPdlk::where('nim', $this->option('nim'))->update(['program_studi_id' => $prodi->id]);
-            $this->info("{$n} data diisi prodi {$prodi->label}.");
+            $n = \DB::update('UPDATE pdlk_participants SET study_program_id = ? WHERE nim = ?', [$prodi->id, $this->option('nim')]);
+            $this->info("{$n} data diisi prodi " . Prodi::label($prodi) . '.');
 
             return self::SUCCESS;
         }
 
-        $daftar = PesertaPdlk::whereNull('program_studi_id')
-            ->when($this->option('nim'), fn ($q, $nim) => $q->where('nim', $nim))
-            ->get();
+        $daftar = Sql::all(
+            'SELECT id, nim, name FROM pdlk_participants WHERE study_program_id IS NULL' . ($this->option('nim') ? ' AND nim = ?' : ''),
+            $this->option('nim') ? [$this->option('nim')] : []
+        );
 
         if ($daftar->isEmpty()) {
             $this->info('Semua mahasiswa aktif sudah memiliki prodi.');
@@ -53,18 +54,18 @@ class LengkapiProdi extends Command
             try {
                 $mhs = $cis->findStudentByNim($p->nim);
             } catch (\Throwable $e) {
-                $this->warn("{$p->nim} {$p->nama}: CIS tidak dapat diakses ({$e->getMessage()}).");
+                $this->warn("{$p->nim} {$p->name}: CIS tidak dapat diakses ({$e->getMessage()}).");
                 continue;
             }
 
             $teks = $mhs['prodi'] ?? null;
-            $prodi = ProgramStudi::dariTeksCis($teks);
+            $prodiId = Prodi::dariTeksCis($teks);
 
-            if ($prodi) {
-                $p->update(['program_studi_id' => $prodi->id]);
-                $this->info("{$p->nim} {$p->nama}: {$prodi->label}");
+            if ($prodiId) {
+                Sql::update('pdlk_participants', $p->id, ['study_program_id' => $prodiId]);
+                $this->info("{$p->nim} {$p->name}: " . Prodi::label(Sql::one('SELECT level, name FROM study_programs WHERE id = ?', [$prodiId])));
             } else {
-                $this->warn("{$p->nim} {$p->nama}: prodi CIS \"" . ($teks ?? '-') . '" tidak cocok. Isi manual dengan --nim=' . $p->nim . ' --prodi=KODE');
+                $this->warn("{$p->nim} {$p->name}: prodi CIS \"" . ($teks ?? '-') . '" tidak cocok. Isi manual dengan --nim=' . $p->nim . ' --prodi=KODE');
             }
         }
 

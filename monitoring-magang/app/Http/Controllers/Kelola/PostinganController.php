@@ -3,104 +3,124 @@
 namespace App\Http\Controllers\Kelola;
 
 use App\Http\Controllers\Controller;
-use App\Models\Postingan;
-use App\Support\Peran;
+use App\Support\Lampiran;
+use App\Support\Query;
+use App\Support\Sql;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 
 /**
- * Posting berita / pengumuman / kegiatan oleh Staf UPT.
+ * Berita oleh Staf UPT (announcements.type = 'news'), query SQL langsung.
  * Dibuat sesederhana unggah foto + narasi (seperti posting media sosial).
  */
 class PostinganController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $postingan = Postingan::query()
-            ->when($request->query('jenis'), fn ($q, $j) => $q->where('jenis', $j))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+        $berita = Sql::paginate(
+            "SELECT a.*, (SELECT COUNT(*) FROM announcement_attachments l WHERE l.announcement_id = a.id) AS jumlah_lampiran
+             FROM announcements a
+             WHERE a.type = 'news' AND a.is_active = true
+             ORDER BY a.created_at DESC",
+            [], 15
+        );
 
-        return view('kelola.postingan.index', compact('postingan'));
+        return view('kelola.postingan.index', compact('berita'));
     }
 
     public function create()
     {
-        return view('kelola.postingan.form', ['postingan' => new Postingan(['jenis' => 'berita', 'is_published' => true])]);
+        return view('kelola.postingan.form', ['berita' => null, 'lampiran' => collect()]);
     }
 
     public function store(Request $request)
     {
         $data = $this->validasi($request);
 
-        if ($request->hasFile('foto')) {
-            $data['foto_path'] = $request->file('foto')->store('postingan', 'public');
+        Sql::transaction(function () use ($request, $data) {
+            $id = Sql::insert('announcements', $data + [
+                'type' => 'news',
+                'slug' => Query::slugUnik($data['title']),
+                'published_at' => $data['status'] === 'published' ? now() : null,
+            ]);
+            Lampiran::simpan($request, $id);
+        });
+
+        return redirect()->route('kelola.postingan.index')->with('success', 'Berita berhasil disimpan.');
+    }
+
+    public function edit(int $id)
+    {
+        return view('kelola.postingan.form', [
+            'berita' => $this->cari($id),
+            'lampiran' => Lampiran::daftar($id),
+        ]);
+    }
+
+    public function update(Request $request, int $id)
+    {
+        $berita = $this->cari($id);
+        $data = $this->validasi($request, $berita);
+
+        if ($data['status'] === 'published' && !$berita->published_at) {
+            $data['published_at'] = now();
         }
 
+        Sql::transaction(function () use ($request, $data, $id) {
+            Sql::update('announcements', $id, $data);
+            Lampiran::simpan($request, $id);
+        });
 
-        Postingan::create($data);
-
-        return redirect()->route('kelola.postingan.index')->with('success', 'Postingan berhasil diterbitkan.');
+        return redirect()->route('kelola.postingan.index')->with('success', 'Berita berhasil diperbarui.');
     }
 
-    public function edit(Postingan $postingan)
+    /** Tidak dihapus permanen: diarsipkan dan is_active = false. */
+    public function destroy(int $id)
     {
-        return view('kelola.postingan.form', compact('postingan'));
+        $this->cari($id);
+        Sql::update('announcements', $id, ['status' => 'archived', 'is_active' => false]);
+
+        return redirect()->route('kelola.postingan.index')->with('success', 'Berita dihapus dari daftar.');
     }
 
-    public function update(Request $request, Postingan $postingan)
+    private function cari(int $id): object
     {
-        $data = $this->validasi($request, $postingan);
-
-        if ($request->hasFile('foto')) {
-            $this->hapusFoto($postingan);
-            $data['foto_path'] = $request->file('foto')->store('postingan', 'public');
-        } elseif ($request->boolean('hapus_foto')) {
-            $this->hapusFoto($postingan);
-            $data['foto_path'] = null;
-        }
-
-        $postingan->update($data);
-
-        return redirect()->route('kelola.postingan.index')->with('success', 'Postingan berhasil diperbarui.');
+        return Sql::oneOrFail("SELECT * FROM announcements WHERE id = ? AND type = 'news'", [$id]);
     }
 
-    public function destroy(Postingan $postingan)
-    {
-        $this->hapusFoto($postingan);
-        $postingan->delete();
-
-        return redirect()->route('kelola.postingan.index')->with('success', 'Postingan dihapus.');
-    }
-
-    private function validasi(Request $request, ?Postingan $postingan = null): array
+    private function validasi(Request $request, ?object $berita = null): array
     {
         $data = $request->validate([
-            'jenis' => ['required', Rule::in(array_keys(Postingan::JENIS))],
-            'judul' => ['required', 'string', 'max:200'],
-            'narasi' => ['required', 'string', 'max:10000'],
+            'title' => ['required', 'string', 'max:200'],
+            'summary' => ['nullable', 'string', 'max:255'],
+            'content' => ['required', 'string', 'max:10000'],
+            'expired_at' => ['nullable', 'date'],
             'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-        ], [
+        ] + Lampiran::RULES, [
+            'title.required' => 'Judul wajib diisi.',
+            'content.required' => 'Narasi wajib diisi.',
             'foto.image' => 'File harus berupa gambar (JPG, PNG, atau WEBP).',
             'foto.max' => 'Ukuran foto maksimal 4 MB.',
         ]);
 
-        unset($data['foto']);
-        $data['is_published'] = $request->boolean('is_published');
+        $hasil = [
+            'title' => $data['title'],
+            'summary' => $data['summary'] ?? null,
+            'content' => $data['content'],
+            'expired_at' => $data['expired_at'] ?? null,
+            'status' => $request->boolean('terbit') ? 'published' : 'draft',
+        ];
 
-        if ($data['is_published'] && !$postingan?->published_at) {
-            $data['published_at'] = now();
+        if ($request->hasFile('foto')) {
+            if ($berita?->cover_image) {
+                Storage::disk('public')->delete($berita->cover_image);
+            }
+            $hasil['cover_image'] = $request->file('foto')->store('berita', 'public');
+        } elseif ($request->boolean('hapus_foto') && $berita?->cover_image) {
+            Storage::disk('public')->delete($berita->cover_image);
+            $hasil['cover_image'] = null;
         }
 
-        return $data;
-    }
-
-    private function hapusFoto(Postingan $postingan): void
-    {
-        if ($postingan->foto_path) {
-            Storage::disk('public')->delete($postingan->foto_path);
-        }
+        return $hasil;
     }
 }
