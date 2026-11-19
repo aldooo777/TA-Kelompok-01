@@ -213,6 +213,13 @@ class PublikController extends Controller
         ]);
     }
 
+    public function strukturOrganisasi()
+    {
+        return view('publik.struktur-organisasi', [
+            'struktur' => Sql::all('SELECT * FROM organization_positions WHERE is_active = true ORDER BY display_order, id'),
+        ]);
+    }
+
     public static function cariLowongan(string $slug): object
     {
         return Sql::oneOrFail(Query::LOWONGAN . ' WHERE ' . Query::LOWONGAN_TERBIT . ' AND a.slug = ?', [$slug]);

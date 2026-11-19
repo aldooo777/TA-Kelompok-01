@@ -170,12 +170,12 @@
                         </a>
 
                         <div class="relative group">
-                            <button class="px-2.5 py-1.5 transition-colors inline-flex items-center gap-1 {{ request()->routeIs('tentang') ? 'bg-white/20 text-white font-bold rounded-lg' : 'text-white hover:text-[#8cc5dd]' }}" type="button">
+                            <button class="px-2.5 py-1.5 transition-colors inline-flex items-center gap-1 {{ request()->routeIs('tentang', 'struktur') ? 'bg-white/20 text-white font-bold rounded-lg' : 'text-white hover:text-[#8cc5dd]' }}" type="button">
                                 Profil <span class="material-symbols-outlined text-[16px]">expand_more</span>
                             </button>
                             <div class="absolute left-0 top-full hidden group-hover:block bg-[#1a81c2] shadow-lg rounded-lg py-2 min-w-[220px] z-50 border-t-2 border-[#46166c]">
                                 <a class="block px-4 py-2 text-white hover:bg-white/10 hover:text-[#8cc5dd] text-label-md font-label-md" href="{{ route('tentang') }}">Visi, Misi &amp; Tujuan</a>
-                                <a class="block px-4 py-2 text-white hover:bg-white/10 hover:text-[#8cc5dd] text-label-md font-label-md" href="{{ request()->routeIs('beranda') ? '#profil' : route('beranda') . '#profil' }}">Struktur Organisasi</a>
+                                <a class="block px-4 py-2 text-white hover:bg-white/10 hover:text-[#8cc5dd] text-label-md font-label-md" href="{{ route('struktur') }}">Struktur Organisasi</a>
                             </div>
                         </div>
 
@@ -235,7 +235,7 @@
                     <a class="px-3 py-2 rounded {{ request()->routeIs('beranda') ? 'bg-white/20 text-white font-bold' : 'text-white hover:bg-white/10' }}" href="{{ route('beranda') }}">Beranda</a>
                     <div class="px-3 py-1 text-white/70 font-semibold">Profil</div>
                     <a class="pl-6 pr-3 py-1.5 text-white hover:bg-white/10 rounded" href="{{ route('tentang') }}">Visi, Misi &amp; Tujuan</a>
-                    <a class="pl-6 pr-3 py-1.5 text-white hover:bg-white/10 rounded" href="{{ request()->routeIs('beranda') ? '#profil' : route('beranda') . '#profil' }}">Struktur Organisasi</a>
+                    <a class="pl-6 pr-3 py-1.5 rounded {{ request()->routeIs('struktur') ? 'bg-white/20 text-white font-bold' : 'text-white hover:bg-white/10' }}" href="{{ route('struktur') }}">Struktur Organisasi</a>
                     <a class="px-3 py-2 text-white hover:bg-white/10 rounded" href="{{ request()->routeIs('beranda') ? '#jenis-pdlk' : route('beranda') . '#jenis-pdlk' }}">Jenis PDLK</a>
                     <a class="px-3 py-2 rounded {{ request()->routeIs('lowongan.*') ? 'bg-white/20 text-white font-bold' : 'text-white hover:bg-white/10' }}" href="{{ route('lowongan.index') }}">Lowongan</a>
                     <div class="px-3 py-1 text-white/70 font-semibold">Pengumuman</div>
@@ -320,7 +320,7 @@
                     <ul class="flex flex-col gap-1.5 font-body-sm text-body-sm list-none p-0 m-0">
                         <li class="flex items-center gap-1"><i class="bi bi-chevron-right text-white/60 text-[10px]"></i><a class="text-white/85 hover:text-[#8cc5dd] transition-colors" href="{{ route('beranda') }}">Beranda</a></li>
                         <li class="flex items-center gap-1"><i class="bi bi-chevron-right text-white/60 text-[10px]"></i><a class="text-white/85 hover:text-[#8cc5dd] transition-colors" href="{{ route('tentang') }}">Visi, Misi &amp; Tujuan</a></li>
-                        <li class="flex items-center gap-1"><i class="bi bi-chevron-right text-white/60 text-[10px]"></i><a class="text-white/85 hover:text-[#8cc5dd] transition-colors" href="{{ request()->routeIs('beranda') ? '#profil' : route('beranda') . '#profil' }}">Struktur Organisasi</a></li>
+                        <li class="flex items-center gap-1"><i class="bi bi-chevron-right text-white/60 text-[10px]"></i><a class="text-white/85 hover:text-[#8cc5dd] transition-colors" href="{{ route('struktur') }}">Struktur Organisasi</a></li>
                         <li class="flex items-center gap-1"><i class="bi bi-chevron-right text-white/60 text-[10px]"></i><a class="text-white/85 hover:text-[#8cc5dd] transition-colors" href="{{ request()->routeIs('beranda') ? '#jenis-pdlk' : route('beranda') . '#jenis-pdlk' }}">Jenis PDLK</a></li>
                         <li class="flex items-center gap-1"><i class="bi bi-chevron-right text-white/60 text-[10px]"></i><a class="text-white/85 hover:text-[#8cc5dd] transition-colors" href="{{ route('lowongan.index') }}">Lowongan</a></li>
                         <li class="flex items-center gap-1"><i class="bi bi-chevron-right text-white/60 text-[10px]"></i><a class="text-white/85 hover:text-[#8cc5dd] transition-colors" href="{{ route('berita.index') }}">Pengumuman &amp; Berita</a></li>

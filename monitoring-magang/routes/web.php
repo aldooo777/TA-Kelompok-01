@@ -40,10 +40,11 @@ Route::middleware('sprint:2')->group(function () {
 Route::get('/galeri', [PublikController::class, 'galeri'])->name('galeri.index');
 Route::get('/galeri/{id}', [PublikController::class, 'galeriDetail'])->whereNumber('id')->name('galeri.show');
 Route::get('/tentang-pdlk', [PublikController::class, 'tentang'])->name('tentang');
+Route::get('/struktur-organisasi', [PublikController::class, 'strukturOrganisasi'])->name('struktur');
 
 /*
 |--------------------------------------------------------------------------
-| Login 
+| Login
 |--------------------------------------------------------------------------
 */
 

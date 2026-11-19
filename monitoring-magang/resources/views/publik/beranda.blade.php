@@ -208,7 +208,7 @@
                 @endif
 
                 <div class="text-center mt-8">
-                    <a class="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-primary text-white font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm" href="{{ route('tentang') }}">
+                    <a class="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-primary text-white font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm" href="{{ route('struktur') }}">
                         <span>Lihat Struktur Organisasi Lengkap</span>
                         <i class="bi bi-arrow-right"></i>
                     </a>
