@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Services\CisNewService;
 use App\Services\CisService;
 use App\Support\Peran;
 use App\Support\Sql;
@@ -149,10 +148,6 @@ class AlurPdlkTest extends TestCase
 
     public function test_login_cis_menyimpan_user_dan_peran(): void
     {
-        $baru = Mockery::mock(CisNewService::class);
-        $baru->shouldReceive('login')->andThrow(new \RuntimeException('gagal'));
-        $this->app->instance(CisNewService::class, $baru);
-
         $lama = Mockery::mock(CisService::class);
         $lama->shouldReceive('login')->andReturn([
             'result' => true, 'token' => 't',
@@ -171,10 +166,7 @@ class AlurPdlkTest extends TestCase
     public function test_login_memberi_pesan_jelas_bila_server_cis_tidak_terjangkau(): void
     {
         config(['sdi.cis_api_url' => 'https://cis.del.ac.id/api']);
-        $baru = Mockery::mock(CisNewService::class);
-        $baru->shouldReceive('login')->andReturn(['result' => false]);
-        $this->app->instance(CisNewService::class, $baru);
-
+        
         $lama = Mockery::mock(CisService::class);
         $lama->shouldReceive('login')->andThrow(new \Illuminate\Http\Client\ConnectionException('cURL error 28: timeout'));
         $this->app->instance(CisService::class, $lama);

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\CisNewService;
 use App\Services\CisService;
 use App\Support\Peran;
 use Illuminate\Http\Client\ConnectionException;
@@ -10,11 +9,8 @@ use Illuminate\Http\Request;
 
 class LoginController extends Controller
 {
-    public function login(
-        Request $request,
-        CisService $cisService,
-        CisNewService $cisNewService
-    ) {
+    public function login(Request $request, CisService $cisService)
+    {
         $request->validate([
             'username' => ['required', 'string'],
             'password' => ['required', 'string'],
@@ -23,38 +19,8 @@ class LoginController extends Controller
         try {
             /*
             |--------------------------------------------------------------------------
-            | 1. Coba login melalui CIS baru
-            |    Digunakan untuk akun Dosen
-            |--------------------------------------------------------------------------
-            */
-            try {
-                $response = $cisNewService->login(
-                    $request->username,
-                    $request->password
-                );
-
-                if ($response['result'] ?? false) {
-                    $user = $response['user'];
-
-                    session([
-                        'cis_user' => $user,
-                        'cis_token' => $response['token'],
-                    ]);
-
-                    $loginCisBaru = $user;
-                }
-            } catch (\Throwable $e) {
-                // Jika CIS baru gagal, lanjut coba CIS lama.
-            }
-
-            if (isset($loginCisBaru)) {
-                return $this->selesaiLogin($request, $loginCisBaru);
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | 2. Coba login melalui CIS lama
-            |    Digunakan untuk akun Mahasiswa
+            | Login melalui API CIS (cis.del.ac.id)
+            | Berlaku untuk semua akun: mahasiswa, dosen, dan staf.
             |--------------------------------------------------------------------------
             */
             $response = $cisService->login(
@@ -63,24 +29,16 @@ class LoginController extends Controller
             );
 
             if (!($response['result'] ?? false)) {
+                $pesan = trim((string) ($response['error'] ?? ''));
+
                 return back()
                     ->withErrors([
-                        'username' =>
-                            $response['success']
-                            ?? $response['error']
-                            ?? 'Username atau password salah.',
+                        'username' => $pesan !== '' ? $pesan : 'Username atau password salah.',
                     ])
                     ->withInput($request->only('username'));
             }
 
-            // Data user dari CIS lama
             $user = $response['user'];
-
-            /*
-            |--------------------------------------------------------------------------
-            | NIM sementara hanya untuk Mahasiswa
-            |--------------------------------------------------------------------------
-            */
 
             session([
                 'cis_user' => $user,
@@ -90,7 +48,7 @@ class LoginController extends Controller
             return $this->selesaiLogin($request, $user);
 
         } catch (ConnectionException $e) {
-            // Server CIS utama tidak terjangkau (biasanya hanya dapat diakses dari jaringan kampus).
+            // Server CIS tidak terjangkau (biasanya hanya dapat diakses dari jaringan kampus).
             report($e);
 
             return back()
