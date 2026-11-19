@@ -14,11 +14,62 @@ class PublikController extends Controller
 {
     public function beranda()
     {
+        $periodeTren = Sql::all(
+            "SELECT pr.id, pr.name, COUNT(pp.id) AS total
+             FROM periods pr
+             LEFT JOIN pdlk_participants pp ON pp.period_id = pr.id AND pp.is_active = true
+             WHERE pr.is_active = true
+             GROUP BY pr.id, pr.name, pr.start_date
+             ORDER BY pr.start_date DESC NULLS LAST, pr.id DESC
+             LIMIT 4"
+        )->reverse()->values();
+
+        $pesertaAktif = Sql::one(
+            "SELECT COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE program_category = 'flagship') AS flagship,
+                    COUNT(*) FILTER (WHERE program_category = 'independent') AS independent
+             FROM pdlk_participants
+             WHERE is_active = true AND status = 'active'"
+        );
+
+        $beritaItems = Sql::all(
+            "SELECT a.*, 'berita' AS kategori_tab
+             FROM announcements a
+             WHERE " . Query::BERITA_TERBIT . "
+             ORDER BY a.published_at DESC NULLS LAST LIMIT 5"
+        );
+
+        $hasilItems = sprint(2)
+            ? Sql::all(
+                "SELECT a.*, 'seleksi' AS kategori_tab
+                 FROM announcements a
+                 WHERE " . str_replace("a.type = 'news'", "a.type = 'result'", Query::BERITA_TERBIT) . "
+                 ORDER BY a.published_at DESC NULLS LAST LIMIT 5"
+            )
+            : collect();
+
+        $pengumuman = $beritaItems->merge($hasilItems)
+            ->sortByDesc('published_at')
+            ->take(5)
+            ->values();
+
+        $mitraStat = Sql::one(
+            "SELECT COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE cooperation_status = 'cooperating') AS cooperating,
+                    COUNT(*) FILTER (WHERE cooperation_status = 'in_process') AS in_process
+             FROM partners WHERE is_active = true"
+        );
+
         return view('publik.beranda', [
-            'lowongan' => Sql::all(Query::LOWONGAN . ' WHERE ' . Query::LOWONGAN_TERBIT . ' ORDER BY a.published_at DESC NULLS LAST, v.id DESC LIMIT 6'),
-            'berita' => Sql::all('SELECT * FROM announcements a WHERE ' . Query::BERITA_TERBIT . ' ORDER BY a.published_at DESC NULLS LAST LIMIT 6'),
+            'lowongan' => Sql::all(Query::LOWONGAN . ' WHERE ' . Query::LOWONGAN_TERBIT . ' ORDER BY a.published_at DESC NULLS LAST, v.id DESC LIMIT 3'),
+            'pengumuman' => $pengumuman,
             'jenisKegiatan' => Sql::all('SELECT * FROM activity_types WHERE is_active = true ORDER BY display_order, name'),
-            'galeri' => Sql::all("SELECT * FROM galleries WHERE is_active = true AND status = 'published' ORDER BY event_date DESC NULLS LAST, id DESC LIMIT 4"),
+            'struktur' => Sql::all('SELECT * FROM organization_positions WHERE is_active = true ORDER BY display_order, position_name LIMIT 6'),
+            'mitra' => Sql::all('SELECT * FROM partners WHERE is_active = true ORDER BY name LIMIT 8'),
+            'mitraStat' => $mitraStat,
+            'galeri' => Sql::all("SELECT * FROM galleries WHERE is_active = true AND status = 'published' ORDER BY event_date DESC NULLS LAST, id DESC LIMIT 6"),
+            'periodeTren' => $periodeTren,
+            'pesertaAktif' => $pesertaAktif,
             'statistik' => [
                 'lowongan' => (int) Sql::value(
                     'SELECT COUNT(*) FROM vacancy_details v JOIN announcements a ON a.id = v.announcement_id WHERE ' . Query::LOWONGAN_TERBIT . '
@@ -26,8 +77,9 @@ class PublikController extends Controller
                      AND (v.registration_start_date IS NULL OR v.registration_start_date <= CURRENT_DATE)
                      AND (v.registration_deadline IS NULL OR v.registration_deadline >= CURRENT_DATE)'
                 ),
-                'mitra' => (int) Sql::value('SELECT COUNT(*) FROM partners WHERE is_active = true'),
+                'mitra' => (int) ($mitraStat->total ?? 0),
                 'bentuk' => (int) Sql::value('SELECT COUNT(*) FROM activity_types WHERE is_active = true'),
+                'peserta' => (int) ($pesertaAktif->total ?? 0),
             ],
         ]);
     }
