@@ -83,7 +83,7 @@
                     <div class="relative flex flex-col items-center justify-center p-8 bg-surface-container-lowest rounded-2xl shadow-md border-2 border-outline-variant/30 text-center">
                         <div class="w-40 h-40 rounded-full border-4 border-[#1a81c2] p-1.5 flex items-center justify-center mb-4 relative shadow-sm">
                             <div class="w-full h-full rounded-full border-2 border-[#46166c] p-3 flex items-center justify-center bg-white">
-                                <img alt="Logo Institut Teknologi Del" class="w-24 h-24 object-contain" src="{{ asset('images/logo-monitoring-pdlk.png') }}">
+                                <img alt="Logo Institut Teknologi Del" class="w-24 h-24 object-contain" src="{{ asset('images/logo-del.png') }}">
                             </div>
                         </div>
                         <h3 class="font-headline-sm text-headline-sm text-[#003580] font-bold">Institut Teknologi Del</h3>
