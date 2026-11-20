@@ -86,7 +86,7 @@
 <body>
     <main class="login-card">
         <div class="login-head">
-            <img src="{{ asset('images/logo-monitoring-pdlk.png') }}" alt="Logo Monitoring PDLK">
+            <img src="{{ asset('images/logo-del.png') }}" alt="Logo Monitoring PDLK">
             <h1>Monitoring PDLK</h1>
             <p>Institut Teknologi Del</p>
         </div>
