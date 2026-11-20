@@ -272,8 +272,8 @@
                             @endif
                         </div>
                         <a class="inline-flex items-center gap-1 font-label-md text-label-md text-primary mt-4 group-hover:text-white transition-colors font-semibold"
-                           href="{{ route('lowongan.index', ['jenis' => $jenis->slug]) }}">
-                            <span>Lihat Lowongan</span>
+                        href="{{ route('jenis-pdlk.show', $jenis->slug) }}">
+                            <span>Lihat Detail</span>
                             <i class="bi bi-arrow-right"></i>
                         </a>
                     </div>

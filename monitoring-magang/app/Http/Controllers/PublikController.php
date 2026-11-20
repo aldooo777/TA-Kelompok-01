@@ -220,6 +220,52 @@ class PublikController extends Controller
         ]);
     }
 
+    public function jenisPdlk()
+    {
+        return view('publik.jenis-pdlk', [
+            'jenisKegiatan' => Sql::all('SELECT * FROM activity_types WHERE is_active = true ORDER BY display_order, name'),
+            'jumlahMitra' => (int) Sql::value('SELECT COUNT(*) FROM partners WHERE is_active = true'),
+        ]);
+    }
+
+    public function jenisPdlkDetail(string $slug)
+    {
+        $jenis = Sql::oneOrFail('SELECT * FROM activity_types WHERE is_active = true AND slug = ?', [$slug]);
+        $semuaJenis = Sql::all('SELECT * FROM activity_types WHERE is_active = true ORDER BY display_order, name');
+
+        $lowonganTerkait = Sql::all(
+            Query::LOWONGAN . ' WHERE ' . Query::LOWONGAN_TERBIT . ' AND v.activity_type_id = ?
+             ORDER BY CASE WHEN v.is_closed = false AND (v.registration_deadline IS NULL OR v.registration_deadline >= CURRENT_DATE) THEN 0 ELSE 1 END,
+                      a.published_at DESC NULLS LAST
+             LIMIT 3',
+            [$jenis->id]
+        );
+
+        $jumlahLowonganAktif = (int) Sql::value(
+            'SELECT COUNT(*) FROM vacancy_details v
+             JOIN announcements a ON a.id = v.announcement_id
+             WHERE ' . Query::LOWONGAN_TERBIT . '
+               AND v.activity_type_id = ?
+               AND v.is_closed = false
+               AND (v.registration_start_date IS NULL OR v.registration_start_date <= CURRENT_DATE)
+               AND (v.registration_deadline IS NULL OR v.registration_deadline >= CURRENT_DATE)',
+            [$jenis->id]
+        );
+
+        $jumlahPeserta = (int) Sql::value(
+            "SELECT COUNT(*) FROM pdlk_participants WHERE activity_type_id = ? AND is_active = true AND status = 'active'",
+            [$jenis->id]
+        );
+
+        return view('publik.jenis-pdlk-show', [
+            'jenis' => $jenis,
+            'semuaJenis' => $semuaJenis,
+            'lowonganTerkait' => $lowonganTerkait,
+            'jumlahLowonganAktif' => $jumlahLowonganAktif,
+            'jumlahPeserta' => $jumlahPeserta,
+        ]);
+    }
+
     public static function cariLowongan(string $slug): object
     {
         return Sql::oneOrFail(Query::LOWONGAN . ' WHERE ' . Query::LOWONGAN_TERBIT . ' AND a.slug = ?', [$slug]);

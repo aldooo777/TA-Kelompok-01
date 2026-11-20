@@ -41,6 +41,8 @@ Route::get('/galeri', [PublikController::class, 'galeri'])->name('galeri.index')
 Route::get('/galeri/{id}', [PublikController::class, 'galeriDetail'])->whereNumber('id')->name('galeri.show');
 Route::get('/tentang-pdlk', [PublikController::class, 'tentang'])->name('tentang');
 Route::get('/struktur-organisasi', [PublikController::class, 'strukturOrganisasi'])->name('struktur');
+Route::get('/jenis-pdlk', [PublikController::class, 'jenisPdlk'])->name('jenis-pdlk');
+Route::get('/jenis-pdlk/{slug}', [PublikController::class, 'jenisPdlkDetail'])->name('jenis-pdlk.show');
 
 /*
 |--------------------------------------------------------------------------
