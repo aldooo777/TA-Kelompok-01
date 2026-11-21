@@ -1,1524 +1,887 @@
+@php
+    $cisUser = session('cis_user', []);
+    $peranAktif = \App\Support\Peran::aktif();
+    $roleLabel = \App\Support\Peran::label();
+    $semuaPeran = array_keys(\App\Support\Peran::semua());
+    $pdlkUser = \App\Support\Peran::user();
+    $username = $cisUser['username'] ?? 'Pengguna';
+    $email = $pdlkUser?->email ?? ($cisUser['email'] ?? '');
+    $nimUser = $pdlkUser?->nim ?? ($cisUser['nim'] ?? '');
 
+    $displayName = trim((string) ($pdlkUser?->name ?? $cisUser['nama'] ?? $cisUser['name'] ?? $username));
+    $nameParts = preg_split('/\s+/', $displayName, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $initial = strtoupper(
+        substr($nameParts[0] ?? $username, 0, 1)
+        . (count($nameParts) > 1 ? substr($nameParts[count($nameParts) - 1], 0, 1) : '')
+    );
+
+    $notifikasiPortal = $pdlkUser
+        ? \App\Support\Sql::all('SELECT * FROM notifications WHERE user_id = ? AND is_active = true ORDER BY created_at DESC LIMIT 5', [$pdlkUser->id])
+        : collect();
+    $unreadNotif = $notifikasiPortal->whereNull('read_at')->count();
+@endphp
+
+@if ($peranAktif === 'student')
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>@yield('title', 'Monitoring PDLK')</title>
+    <title>@yield('title', 'Portal Mahasiswa | Sistem Informasi PDLK')</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/pdlk-app.css') }}">
-    @stack('styles')
-
     <style>
         :root {
-            --accent: #318ab7;
-            --accent-dark: #24749b;
+            --primary: #003580;
+            --secondary: #0055A5;
+            --navbar-bg: #1a81c2;
+            --accent: #8cc5dd;
+            --accent-dark: #003580;
             --accent-soft: #e7f3fa;
-            --page-bg: #f1f2f4;
-            --text: #354052;
-            --muted: #7b8797;
-            --border: #e2e6eb;
-            --sidebar-width: 245px;
+            --purple-dark: #46166c;
+            --purple-mid: #664780;
+            --bg-content: #eef2f7;
+            --text-main: #444444;
+            --text-muted: #6c757d;
         }
-
-        * {
-            box-sizing: border-box;
-        }
-
         body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-content);
+            color: var(--text-main);
             margin: 0;
             min-height: 100vh;
-            background:
-                linear-gradient(135deg, #f7f7f7, #e9ecef);
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 14px;
-            color: var(--text);
+            display: flex;
+            flex-direction: column;
         }
-
-        button,
-        input {
-            font: inherit;
-        }
-
-        button,
-        a {
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        a {
-            color: var(--accent-dark);
-            text-decoration: none;
-        }
-
-        button {
-            cursor: pointer;
-        }
-
-        [hidden] {
-            display: none !important;
-        }
-
-        /* =====================================================
-           KERANGKA APLIKASI
-        ===================================================== */
-
-        .app-shell {
+        a { text-decoration: none; }
+        .top-stripe {
+            height: 4px;
+            background-color: var(--purple-dark);
             width: 100%;
-            max-width: 1220px;
-            min-height: 100vh;
-            margin: 0 auto;
-            background: #fff;
-            box-shadow: 0 0 22px rgba(0, 0, 0, .09);
-        }
-
-        /* =====================================================
-           HEADER ATAS
-        ===================================================== */
-
-        .topbar {
-            position: relative;
-            z-index: 20;
-            display: flex;
-            align-items: stretch;
-            height: 56px;
-            color: white;
-            background: var(--accent);
-        }
-
-        .brand-area {
-            display: flex;
-            flex: 0 0 var(--sidebar-width);
-            align-items: center;
-            gap: 9px;
-            min-width: 0;
-            padding: 0 15px;
-            color: white;
-            background-color: var(--accent-dark);
-            background-image:
-                repeating-linear-gradient(
-                    0deg,
-                    rgba(255,255,255,.045) 0,
-                    rgba(255,255,255,.045) 1px,
-                    transparent 1px,
-                    transparent 4px
-                ),
-                repeating-linear-gradient(
-                    90deg,
-                    rgba(255,255,255,.045) 0,
-                    rgba(255,255,255,.045) 1px,
-                    transparent 1px,
-                    transparent 4px
-                );
-        }
-
-        .brand-mark {
-            display: flex;
-            flex: 0 0 42px;
-            align-items: center;
-            justify-content: center;
-            height: 38px;
-            border: 1px solid rgba(255,255,255,.6);
-            border-radius: 3px;
-            background: rgba(255,255,255,.08);
-            font-size: 23px;
-            font-weight: 800;
-        }
-
-        .brand-name {
-            font-size: 14px;
-            font-weight: 800;
-            line-height: 1.2;
-            letter-spacing: .2px;
-        }
-
-        .brand-subtitle {
-            margin-top: 4px;
-            color: #e0f0f8;
-            font-size: 10px;
-        }
-
-        .topbar-main {
-            display: flex;
-            flex: 1;
-            align-items: center;
-            justify-content: space-between;
-            min-width: 0;
-            padding: 0 12px;
-        }
-
-        .icon-button {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 42px;
-            height: 42px;
-            padding: 0;
-            border: 0;
-            border-radius: 4px;
-            color: white;
-            background: transparent;
-            font-size: 21px;
-        }
-
-        .icon-button:hover,
-        .icon-button[aria-expanded="true"] {
-            background: rgba(255,255,255,.13);
-        }
-
-        .topbar-actions {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .notification-dot {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 7px;
-            height: 7px;
-            border: 1px solid var(--accent);
-            border-radius: 50%;
-            background: #ffd166;
-        }
-
-        .profile-toggle {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            max-width: 220px;
-            height: 48px;
-            padding: 0 10px;
-            border: 0;
-            color: white;
-            background: transparent;
-        }
-
-        .profile-toggle:hover,
-        .profile-toggle[aria-expanded="true"] {
-            background: rgba(255,255,255,.12);
-        }
-
-        .avatar {
-            display: flex;
-            flex: 0 0 30px;
-            align-items: center;
-            justify-content: center;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            color: var(--accent-dark);
-            background: #e9f2ff;
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-
-.profile-meta {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
-    min-width: 0;
-    text-align: left;
-}
-
-.profile-name {
-    display: block;
-    max-width: 150px;
-    overflow: hidden;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.profile-role-label {
-    color: #e0eef7;
-    font-size: 10px;
-    line-height: 1.3;
-}
-
-
-        .profile-caret {
-            font-size: 10px;
-        }
-
-        /* =====================================================
-           DROPDOWN HEADER
-        ===================================================== */
-
-        .dropdown-wrap {
-            position: relative;
-        }
-
-        .dropdown-panel {
-            position: absolute;
-            top: calc(100% + 1px);
-            right: 0;
-            z-index: 100;
-            width: 290px;
-            overflow: hidden;
-            border: 1px solid #dfe5eb;
-            border-radius: 2px;
-            color: var(--text);
-            background: white;
-            box-shadow: 0 7px 22px rgba(0,0,0,.16);
-        }
-
-        .dropdown-heading {
-            padding: 14px 16px;
-            border-bottom: 1px solid #edf0f3;
-            font-weight: 700;
-        }
-
-        .notification-content {
-            padding: 20px 16px;
-            color: var(--muted);
-            font-size: 13px;
-            line-height: 1.7;
-        }
-
-        .profile-panel-header {
-            padding: 22px 15px;
-            text-align: center;
-            color: white;
-            background: var(--accent);
-        }
-
-        .profile-big-avatar {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 58px;
-            height: 58px;
-            margin: 0 auto 10px;
-            border: 2px solid rgba(255,255,255,.5);
-            border-radius: 50%;
-            color: var(--accent-dark);
-            background: #eff5ff;
-            font-size: 23px;
-            font-weight: 800;
-        }
-
-        .profile-full-name {
-            font-weight: 700;
-        }
-
-
-.profile-username {
-    margin-top: 5px;
-    color: #e0eef7;
-    font-size: 11px;
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-}
-
-
-        .profile-email {
-            margin-top: 6px;
-            color: #e5f2fb;
-            font-size: 11px;
-            overflow-wrap: anywhere;
-        }
-
-        .role-badge {
-            display: inline-block;
-            margin-top: 10px;
-            padding: 4px 9px;
-            border-radius: 3px;
-            color: var(--accent-dark);
-            background: #fff;
-            font-size: 10px;
-            font-weight: 700;
-        }
-
-        .profile-panel-footer {
-            display: flex;
-            justify-content: flex-end;
-            padding: 12px;
-            background: #fafafa;
-        }
-
-        .signout-button {
-            padding: 8px 12px;
-            border: 1px solid #dce2e8;
-            border-radius: 3px;
-            color: #465367;
-            background: white;
-        }
-
-        .signout-button:hover {
-            background: #f0f3f6;
-        }
-
-        .theme-panel {
-            padding: 15px;
-        }
-
-        .theme-panel-title {
-            margin-bottom: 12px;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .theme-options {
-            display: flex;
-            gap: 11px;
-        }
-
-        /* =====================================================
-           AREA UTAMA DAN SIDEBAR
-        ===================================================== */
-
-        .workspace {
-            display: flex;
-            align-items: stretch;
-            min-height: calc(100vh - 56px);
-        }
-
-        .sidebar {
-            flex: 0 0 var(--sidebar-width);
-            width: var(--sidebar-width);
-            overflow: hidden;
-            padding: 10px 0 25px;
-            border-right: 1px solid #dce1e7;
-            background: #f8f9fb;
-            transition:
-                width .2s ease,
-                flex-basis .2s ease,
-                padding .2s ease;
-        }
-
-        .sidebar-collapsed .sidebar {
-            flex-basis: 0;
-            width: 0;
-            padding-right: 0;
-            padding-left: 0;
-            border-right: 0;
-        }
-
-        .theme-strip {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            padding: 0 12px 17px;
-            border-bottom: 1px solid #edf0f4;
-        }
-
-        .theme-swatch {
-            flex: 0 0 19px;
-            width: 19px;
-            height: 19px;
-            padding: 0;
-            border: 2px solid transparent;
-            border-radius: 0;
-            outline: 1px solid transparent;
-        }
-
-        .theme-swatch:hover,
-        .theme-swatch.active {
-            outline: 1px solid #475569;
-            outline-offset: 2px;
-        }
-
-        .swatch-blue {
-            background: #318ab7;
-        }
-
-        .swatch-red {
-            background: #e74c3c;
-        }
-
-        .swatch-black {
-            background: #22272e;
-        }
-
-        .swatch-green {
-            background: #159c78;
-        }
-
-        .swatch-purple {
-            background: #6258a8;
-        }
-
-        .menu-heading {
-            padding: 19px 16px 12px;
-            color: #8993a1;
-            font-size: 10px;
-            letter-spacing: .65px;
-            text-transform: uppercase;
-        }
-
-        .sidebar-nav {
-            padding: 0 0 12px;
-        }
-
-        .nav-link,
-        .nav-group-toggle,
-        .nav-disabled {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            width: 100%;
-            min-height: 43px;
-            padding: 11px 16px;
-            border: 0;
-            border-radius: 0;
-            text-align: left;
-            color: #364152;
-            background: transparent;
-            font-size: 13px;
-        }
-
-        .nav-link:hover,
-.nav-group-toggle:hover {
-    color: var(--accent-dark);
-    background: var(--accent-soft);
-}
-
-.nav-link.active {
-    color: var(--accent-dark);
-    background: var(--accent-soft);
-    border-left: 3px solid var(--accent);
-    padding-left: 13px;
-    font-weight: 700;
-}
-
-.nav-submenu {
-    display: none;
-    padding: 2px 0 5px;
-    background: var(--accent-soft);
-}
-
-        .nav-icon {
-            display: inline-flex;
-            flex: 0 0 19px;
-            align-items: center;
-            justify-content: center;
-            width: 19px;
-            font-size: 15px;
-        }
-
-        .nav-label {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .nav-arrow {
-            margin-left: auto;
-            color: #7d8897;
-            font-size: 12px;
-            transition: transform .15s ease;
-        }
-
-        .nav-group.open > .nav-group-toggle .nav-arrow {
-            transform: rotate(90deg);
-        }
-
-        .nav-submenu {
-            display: none;
-            padding: 2px 0 5px;
-            background: #f0f2f5;
-        }
-
-        .nav-group.open .nav-submenu {
-            display: block;
-        }
-
-        .nav-submenu .nav-link {
-            min-height: 37px;
-            padding-top: 9px;
-            padding-bottom: 9px;
-            padding-left: 45px;
-            font-size: 12px;
-        }
-
-        .nav-disabled {
-            color: #8c96a5;
-            cursor: default;
-        }
-
-        /* =====================================================
-           AREA KONTEN
-        ===================================================== */
-
-        .main-content {
-            flex: 1;
-            min-width: 0;
-            padding: 0;
-            background: white;
-        }
-
-        .breadcrumb-bar {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            min-height: 42px;
-            padding: 0 18px;
-            border-bottom: 1px solid #edf0f2;
-            color: #7b8796;
-            background: #fff;
-            font-size: 12px;
-        }
-
-        .breadcrumb-home {
-            color: var(--accent-dark);
-            font-weight: 700;
-        }
-
-        .content-body {
-            min-height: 570px;
-            padding: 18px;
-        }
-
-        .page-heading {
-            margin-bottom: 22px;
-            padding-bottom: 17px;
-            border-bottom: 1px solid #e7ebef;
-        }
-
-        .page-heading .page-title {
-            margin: 0;
-            color: var(--accent-dark);
-            font-size: 22px;
-            font-weight: 400;
-        }
-
-        /* Komponen untuk konten dashboard */
-
-        .welcome-banner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 20px;
-            margin-bottom: 26px;
-            padding: 24px;
-            border-radius: 3px;
-            color: white;
-            background: var(--accent);
-        }
-
-        .welcome-banner h2 {
-            margin: 10px 0;
-            font-size: 24px;
-        }
-
-        .welcome-banner p {
-            max-width: 650px;
-            margin: 0;
-            color: #f0f7fb;
-            font-size: 13px;
-            line-height: 1.8;
-        }
-
-        .panel {
-            margin-bottom: 22px;
-            padding: 22px;
-            border: 1px solid #e4e7eb;
-            border-radius: 2px;
-            background: #fff;
-        }
-
-        .panel h2 {
-            margin: 0 0 8px;
-            font-size: 18px;
-            font-weight: 500;
-        }
-
-        .muted {
-            color: var(--muted);
-            font-size: 12px;
-            line-height: 1.7;
-        }
-
-        .cards {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 15px;
-            margin-top: 16px;
-        }
-
-        .summary-card {
-            min-width: 0;
-            padding: 17px;
-            border: 1px solid #e5e9ed;
-            border-radius: 2px;
-            background: #fff;
-        }
-
-        .summary-label {
-            margin-bottom: 16px;
-            color: #748196;
-            font-size: 12px;
-        }
-
-        .summary-value {
-            margin-bottom: 8px;
-            color: #26364d;
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .status-pill {
-            display: inline-block;
-            padding: 6px 11px;
-            border-radius: 2px;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .status-waiting {
-            color: #956400;
-            background: #fff2cf;
-        }
-
-        .status-accepted {
-            color: #087443;
-            background: #e1f7eb;
-        }
-
-        .status-rejected {
-            color: #b42336;
-            background: #ffeaed;
-        }
-
-        .primary-link {
-            display: inline-block;
-            margin-top: 12px;
-            padding: 9px 13px;
-            color: white;
-            background: var(--accent);
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .primary-link:hover {
-            background: var(--accent-dark);
-            color: white;
-        }
-
-        .footer {
-            padding: 17px 18px;
-            border-top: 1px solid #dce1e7;
-            color: #616d7d;
-            background: #fff;
-            font-size: 11px;
-        }
-
-        /* =====================================================
-   SELURUH AKSEN KONTEN MENGIKUTI TEMA HEADER
-===================================================== */
-
-/* Banner Dashboard */
-.main-content .welcome,
-.main-content .welcome-banner {
-    background: linear-gradient(
-        120deg,
-        var(--accent-dark),
-        var(--accent)
-    ) !important;
-    color: #fff !important;
-}
-
-/* Tombol utama */
-.main-content .primary-link,
-.main-content .btn-primary,
-.main-content .button-primary,
-.main-content .action-link {
-    color: #fff !important;
-    background: var(--accent) !important;
-    border-color: var(--accent) !important;
-}
-
-.main-content .primary-link:hover,
-.main-content .btn-primary:hover,
-.main-content .button-primary:hover,
-.main-content .action-link:hover {
-    background: var(--accent-dark) !important;
-}
-
-/* Judul dan navigasi */
-.main-content .page-title,
-.main-content .breadcrumb-home,
-.main-content .breadcrumb-link:hover {
-    color: var(--accent-dark) !important;
-}
-
-/* Ikon dan nomor alur */
-.main-content .stat-icon.blue,
-.main-content .step-number {
-    color: var(--accent-dark) !important;
-    background: var(--accent-soft) !important;
-}
-
-/* Informasi */
-.main-content .info-box {
-    background: var(--accent-soft) !important;
-    border-color: var(--accent-soft) !important;
-}
-
-.main-content .info-box strong {
-    color: var(--accent-dark) !important;
-}
-
-        /* =====================================================
-           RESPONSIF
-        ===================================================== */
-
-        @media (max-width: 900px) {
-            :root {
-                --sidebar-width: 215px;
-            }
-
-            .content-body {
-                padding: 15px;
-            }
-
-            .cards {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-
-        @media (max-width: 650px) {
-            .topbar {
-                height: 56px;
-            }
-
-            .brand-area {
-                flex-basis: auto;
-                flex: 1;
-                padding: 0 10px;
-            }
-
-            .brand-mark {
-                flex-basis: 34px;
-                height: 34px;
-                font-size: 19px;
-            }
-
-            .brand-name {
-                font-size: 12px;
-            }
-
-            .brand-subtitle {
-                display: none;
-            }
-
-            .topbar-main {
-                flex: 0 0 auto;
-                padding: 0 4px;
-            }
-
-            .topbar-actions {
-                gap: 0;
-            }
-
-            .topbar-actions > .dropdown-wrap:first-child {
-                display: none;
-            }
-
-            .profile-toggle {
-                gap: 5px;
-                padding: 0 4px;
-            }
-
-            .profile-meta {
-    display: none;
-}
-
-            .profile-caret {
-                display: none;
-            }
-
-            .workspace {
-                display: block;
-            }
-
-            .sidebar {
-                width: 100%;
-                padding-top: 8px;
-                border-right: 0;
-                border-bottom: 1px solid #dce1e7;
-            }
-
-            .sidebar-collapsed .sidebar {
-                display: none;
-            }
-
-            .theme-strip {
-                justify-content: flex-start;
-                padding-left: 18px;
-            }
-
-            .menu-heading {
-                padding-top: 13px;
-            }
-
-            .main-content {
-                width: 100%;
-            }
-
-            .content-body {
-                min-height: 450px;
-                padding: 14px;
-            }
-
-            .welcome-banner {
-                padding: 19px;
-            }
-
-            .welcome-banner h2 {
-                font-size: 21px;
-            }
-
-            .cards {
-                grid-template-columns: 1fr;
-            }
-
-            .dropdown-panel {
-                position: fixed;
-                top: 57px;
-                right: 8px;
-                width: min(290px, calc(100vw - 16px));
-            }
+            position: sticky;
+            top: 0;
+            z-index: 1040;
+        }
+        .dashboard-navbar {
+            background-color: var(--navbar-bg);
+            min-height: 68px;
+            box-shadow: 0 4px 14px rgba(0, 53, 128, 0.12);
+            position: sticky;
+            top: 4px;
+            z-index: 1030;
+            padding: 0.5rem 1rem;
+        }
+        .brand-container { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+        .brand-logo-wrap {
+            width: 42px; height: 42px; background: #ffffff; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15); border: 2px solid var(--accent);
+            padding: 3px; overflow: hidden; flex-shrink: 0;
+        }
+        .brand-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+        .brand-title { line-height: 1.15; }
+        .brand-title .main-text { font-size: 1.05rem; font-weight: 700; color: #ffffff; letter-spacing: 0.3px; display: block; }
+        .brand-title .sub-text { font-size: 0.72rem; font-weight: 500; color: rgba(255, 255, 255, 0.9); }
+
+        .nav-center .nav-link {
+            color: #ffffff !important; font-size: 0.88rem; font-weight: 500;
+            padding: 8px 14px !important; border-radius: 20px; transition: all 0.2s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .nav-center .nav-link:hover { background-color: rgba(255, 255, 255, 0.12); color: #ffffff !important; }
+        .nav-center .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.18) !important;
+            border-bottom: 3px solid var(--accent);
+            border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; font-weight: 600;
+        }
+        .dropdown-menu { border: none; border-radius: 12px; box-shadow: 0 10px 25px rgba(0, 53, 128, 0.14); padding: 8px; }
+        .dropdown-item { font-size: 0.85rem; font-weight: 500; padding: 8px 14px; border-radius: 8px; color: var(--text-main); }
+        .dropdown-item:hover { background-color: #f0f4fa; color: var(--primary); }
+
+        .icon-bell-btn {
+            position: relative; background: rgba(255, 255, 255, 0.15); width: 38px; height: 38px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            color: #ffffff; border: 0; transition: background 0.2s;
+        }
+        .icon-bell-btn:hover { background: rgba(255, 255, 255, 0.25); color: #ffffff; }
+        .bell-badge {
+            position: absolute; top: -2px; right: -2px; background-color: #dc3545; color: #fff;
+            font-size: 0.65rem; font-weight: 700; padding: 2px 5px; border-radius: 10px; border: 2px solid var(--navbar-bg);
+        }
+        .role-badge-pill {
+            border: 1px solid rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.12);
+            color: #ffffff; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.5px;
+            padding: 6px 12px; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px;
+        }
+        .profile-pill-btn {
+            background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 30px; padding: 4px 12px 4px 5px; display: flex; align-items: center;
+            gap: 8px; cursor: pointer; color: #ffffff; text-decoration: none; transition: all 0.2s ease;
+        }
+        .profile-pill-btn:hover { background: rgba(255, 255, 255, 0.24); color: #ffffff; }
+        .avatar-circle-sm {
+            width: 30px; height: 30px; border-radius: 50%; background: var(--purple-dark);
+            color: #ffffff; font-weight: 700; font-size: 0.75rem; display: flex;
+            align-items: center; justify-content: center; border: 1.5px solid #ffffff;
+        }
+        .dashboard-container { padding-top: 24px; padding-bottom: 40px; flex-grow: 1; }
+        .dashboard-footer {
+            background: #ffffff; border-top: 1px solid #e2e8f0; padding: 18px 0;
+            text-align: center; color: var(--text-muted); font-size: 0.8rem;
         }
     </style>
+    @stack('styles')
 </head>
-
 <body>
+    <div class="top-stripe"></div>
 
-@php
-    $cisUser = session('cis_user', []);
-
-    $peranAktif = \App\Support\Peran::aktif();
-    $role = \App\Support\Peran::label();
-    $semuaPeran = array_keys(\App\Support\Peran::semua());
-    $username = $cisUser['username'] ?? 'Pengguna';
-    $email = $cisUser['email'] ?? '';
-
-    $displayName = trim(
-        (string) ($cisUser['nama'] ?? $cisUser['name'] ?? $username)
-    );
-
-    $nameParts = preg_split(
-        '/\s+/',
-        $displayName,
-        -1,
-        PREG_SPLIT_NO_EMPTY
-    ) ?: [];
-
-    $initial = strtoupper(
-        substr($nameParts[0] ?? $username, 0, 1)
-        . (
-            count($nameParts) > 1
-                ? substr($nameParts[count($nameParts) - 1], 0, 1)
-                : ''
-        )
-    );
-@endphp
-
-
-    <div class="app-shell">
-
-        {{-- HEADER UTAMA --}}
-        <header class="topbar">
-
-            <div class="brand-area">
-                <div class="brand-mark">M</div>
-
-                <div>
-                    <div class="brand-name">MONITORING PDLK</div>
-                    <div class="brand-subtitle">Institut Teknologi Del</div>
+    <nav class="navbar navbar-expand-lg dashboard-navbar">
+        <div class="container-fluid px-lg-4">
+            <a class="brand-container me-3" href="{{ route('dashboard') }}">
+                <div class="brand-logo-wrap">
+                    <img src="{{ asset('images/logo-del.png') }}" alt="Logo IT Del">
                 </div>
-            </div>
+                <div class="brand-title">
+                    <span class="main-text">Sistem Informasi PDLK</span>
+                    <span class="sub-text">Institut Teknologi Del</span>
+                </div>
+            </a>
 
-            <div class="topbar-main">
-                <button
-                    type="button"
-                    class="icon-button"
-                    id="sidebarToggle"
-                    aria-label="Buka atau tutup menu"
-                    title="Buka atau tutup menu"
-                >
-                    ☰
-                </button>
+            <button class="navbar-toggler border-0 text-white shadow-none" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#dashboardNavbarContent"
+                    aria-controls="dashboardNavbarContent" aria-expanded="false" aria-label="Toggle navigation">
+                <i class="bi bi-list fs-2 text-white"></i>
+            </button>
 
-                <div class="topbar-actions">
+            <div class="collapse navbar-collapse" id="dashboardNavbarContent">
+                <ul class="navbar-nav mx-auto mb-2 mb-lg-0 nav-center gap-1 py-2 py-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                    </li>
 
-                    {{-- NOTIFIKASI --}}
-                    <div class="dropdown-wrap">
-                        <button
-                            type="button"
-                            class="icon-button"
-                            id="notificationToggle"
-                            aria-expanded="false"
-                            aria-label="Notifikasi"
-                            title="Notifikasi"
-                        >
-                            ♧
-                            <span class="notification-dot"></span>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ request()->routeIs('portal.lowongan.*', 'mahasiswa.pendaftaran.*') ? 'active' : '' }}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-briefcase"></i> Lowongan PDLK
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ route('portal.lowongan.index') }}"><i class="bi bi-search me-2 text-primary"></i> Cari Lowongan PDLK</a></li>
+                            @if (sprint(2))
+                                <li><a class="dropdown-item" href="{{ route('mahasiswa.pendaftaran.index') }}"><i class="bi bi-clock-history me-2 text-primary"></i> Progres Pendaftaran</a></li>
+                            @endif
+                        </ul>
+                    </li>
+
+                    @if (sprint(2))
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {{ request()->routeIs('mahasiswa.progres.*') ? 'active' : '' }}"
+                               href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-journal-bookmark"></i> Kegiatan PDLK
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ route('dashboard') }}#kegiatan-saya"><i class="bi bi-card-checklist me-2 text-primary"></i> Kegiatan Saya</a></li>
+                                <li><a class="dropdown-item" href="{{ route('mahasiswa.progres.edit') }}"><i class="bi bi-pencil-square me-2 text-primary"></i> Perbarui Progres</a></li>
+                            </ul>
+                        </li>
+                    @endif
+
+                    @if (sprint(3))
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('monitoring.*') ? 'active' : '' }}" href="{{ route('monitoring.index') }}">
+                                <i class="bi bi-clipboard-data"></i> Monev
+                            </a>
+                        </li>
+                    @endif
+                </ul>
+
+                <div class="d-flex align-items-center gap-3 mt-3 mt-lg-0 pb-2 pb-lg-0">
+                    <div class="dropdown">
+                        <button class="icon-bell-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifikasi">
+                            <i class="bi bi-bell-fill"></i>
+                            @if ($unreadNotif > 0)
+                                <span class="bell-badge">{{ $unreadNotif }}</span>
+                            @endif
                         </button>
-
-                        <div
-                            class="dropdown-panel"
-                            id="notificationPanel"
-                            hidden
-                        >
-                            <div class="dropdown-heading">
-                                Notifikasi
-                            </div>
-
-                            <div class="notification-content">
-                                Belum ada notifikasi baru.
-
-                                <br><br>
-
-                                Informasi pendaftaran, monitoring,
-                                dan perubahan status akan ditampilkan
-                                di bagian ini ketika modul terkait tersedia.
-                            </div>
-                        </div>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="width: 310px; max-height: 360px; overflow-y: auto;">
+                            <li class="px-3 py-2 border-bottom fw-bold" style="font-size: 0.84rem; color: var(--primary);">Notifikasi</li>
+                            @forelse ($notifikasiPortal as $notif)
+                                <li>
+                                    <a class="dropdown-item py-2 border-bottom text-wrap" href="{{ $notif->url ?: '#' }}">
+                                        <div class="fw-semibold" style="font-size: 0.8rem; color: var(--primary);">{{ $notif->title }}</div>
+                                        @if ($notif->message)
+                                            <div class="text-muted" style="font-size: 0.74rem;">{{ $notif->message }}</div>
+                                        @endif
+                                    </a>
+                                </li>
+                            @empty
+                                <li class="px-3 py-3 text-muted text-center" style="font-size: 0.8rem;">Belum ada notifikasi baru.</li>
+                            @endforelse
+                        </ul>
                     </div>
 
-                    {{-- PROFIL PENGGUNA --}}
-                    <div class="dropdown-wrap">
+                    <span class="role-badge-pill d-none d-sm-inline-flex">
+                        <i class="bi bi-person-badge"></i> {{ strtoupper($roleLabel) }}
+                    </span>
 
-<button
-    type="button"
-    class="profile-toggle"
-    id="profileToggle"
-    aria-expanded="false"
-    aria-label="Profil pengguna"
->
-    <span class="avatar">{{ $initial }}</span>
-
-    <span class="profile-name">
-    {{ count($nameParts) >= 2
-        ? $nameParts[0] . ' ' . $nameParts[count($nameParts) - 1]
-        : $displayName }}
-</span>
-
-        <span class="profile-role-label">
-            {{ $role }}
-        </span>
-    </span>
-
-    <span class="profile-caret">▼</span>
-</button>
-
-
-                        <div
-                            class="dropdown-panel"
-                            id="profilePanel"
-                            hidden
-                        >
-                            <div class="profile-panel-header">
-                                <div class="profile-big-avatar">
-                                    {{ $initial }}
-                                </div>
-
-
-<div class="profile-full-name">
-    {{ $displayName }}
-</div>
-
-<div class="profile-username">
-    Akun: {{ $username }}
-</div>
-
-@if (!empty($cisUser['nim']))
-    <div class="profile-username">
-        NIM: {{ $cisUser['nim'] }}
-    </div>
-@endif
-
-
-                                @if ($email)
-                                    <div class="profile-email">
-                                        {{ $email }}
-                                    </div>
+                    <div class="dropdown">
+                        <a class="profile-pill-btn dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="avatar-circle-sm">{{ $initial }}</div>
+                            <span class="d-none d-md-inline fw-medium" style="font-size: 0.82rem;">{{ $displayName }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width: 240px;">
+                            <li class="px-3 py-2 border-bottom mb-1">
+                                <div class="fw-bold" style="font-size: 0.84rem; color: var(--primary);">{{ $displayName }}</div>
+                                @if ($nimUser)
+                                    <div class="text-muted" style="font-size: 0.72rem;">NIM: {{ $nimUser }}</div>
                                 @endif
-
-                                <span class="role-badge">
-                                    {{ $role }}
-                                </span>
-
-                                @if (count($semuaPeran) > 1)
-                                    <div class="profile-username" style="margin-top:10px">Ganti peran:</div>
-                                    @foreach ($semuaPeran as $kodePeran)
-                                        @continue($kodePeran === $peranAktif)
-                                        <form method="POST" action="{{ route('peran.ganti', $kodePeran) }}" style="margin-top:4px">
+                                @if ($email)
+                                    <div class="text-muted" style="font-size: 0.72rem;">{{ $email }}</div>
+                                @endif
+                            </li>
+                            @if (count($semuaPeran) > 1)
+                                <li class="px-3 pt-1 pb-1 text-muted" style="font-size: 0.72rem;">Ganti peran:</li>
+                                @foreach ($semuaPeran as $kodePeran)
+                                    @continue($kodePeran === $peranAktif)
+                                    <li>
+                                        <form method="POST" action="{{ route('peran.ganti', $kodePeran) }}">
                                             @csrf
-                                            <button type="submit" class="p-btn p-btn-light p-btn-sm" style="width:100%">
-                                                {{ \App\Support\Peran::label($kodePeran) }}
+                                            <button type="submit" class="dropdown-item">
+                                                <i class="bi bi-arrow-left-right me-2 text-primary"></i> {{ \App\Support\Peran::label($kodePeran) }}
                                             </button>
                                         </form>
-                                    @endforeach
-                                @endif
-                            </div>
-
-                            <div class="profile-panel-footer">
-                                <form
-                                    method="POST"
-                                    action="{{ route('logout') }}"
-                                >
+                                    </li>
+                                @endforeach
+                                <li><hr class="dropdown-divider my-1"></li>
+                            @endif
+                            <li><a class="dropdown-item" href="{{ route('beranda') }}"><i class="bi bi-globe me-2 text-primary"></i> Lihat Situs Informasi</a></li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <form method="POST" action="{{ route('logout') }}">
                                     @csrf
-
-                                    <button
-                                        type="submit"
-                                        class="signout-button"
-                                    >
-                                        Keluar
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        <i class="bi bi-box-arrow-right me-2"></i> Keluar
                                     </button>
                                 </form>
-                            </div>
-                        </div>
+                            </li>
+                        </ul>
                     </div>
-
-                    {{-- PENGATURAN TEMA --}}
-                    <div class="dropdown-wrap">
-                        <button
-                            type="button"
-                            class="icon-button"
-                            id="themeToggle"
-                            aria-label="Pengaturan tampilan"
-                            aria-expanded="false"
-                            title="Pengaturan tampilan"
-                        >
-                            ⚙
-                        </button>
-
-                        <div
-                            class="dropdown-panel"
-                            id="themePanel"
-                            hidden
-                        >
-                            <div class="theme-panel">
-                                <div class="theme-panel-title">
-                                    Warna tampilan
-                                </div>
-
-                                <div class="theme-options">
-                                    <button
-                                        type="button"
-                                        class="theme-swatch swatch-blue"
-                                        data-theme="blue"
-                                        aria-label="Tema biru"
-                                        title="Biru"
-                                    ></button>
-
-                                    <button
-                                        type="button"
-                                        class="theme-swatch swatch-red"
-                                        data-theme="red"
-                                        aria-label="Tema merah"
-                                        title="Merah"
-                                    ></button>
-
-                                    <button
-                                        type="button"
-                                        class="theme-swatch swatch-black"
-                                        data-theme="black"
-                                        aria-label="Tema hitam"
-                                        title="Hitam"
-                                    ></button>
-
-                                    <button
-                                        type="button"
-                                        class="theme-swatch swatch-green"
-                                        data-theme="green"
-                                        aria-label="Tema hijau"
-                                        title="Hijau"
-                                    ></button>
-
-                                    <button
-                                        type="button"
-                                        class="theme-swatch swatch-purple"
-                                        data-theme="purple"
-                                        aria-label="Tema ungu"
-                                        title="Ungu"
-                                    ></button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
             </div>
-        </header>
-
-        <div class="workspace" id="workspace">
-
-            {{-- SIDEBAR --}}
-            <aside class="sidebar">
-
-                <div class="theme-strip" aria-label="Pilihan warna">
-                    <button
-                        type="button"
-                        class="theme-swatch swatch-blue"
-                        data-theme="blue"
-                        aria-label="Tema biru"
-                        title="Biru"
-                    ></button>
-
-                    <button
-                        type="button"
-                        class="theme-swatch swatch-red"
-                        data-theme="red"
-                        aria-label="Tema merah"
-                        title="Merah"
-                    ></button>
-
-                    <button
-                        type="button"
-                        class="theme-swatch swatch-black"
-                        data-theme="black"
-                        aria-label="Tema hitam"
-                        title="Hitam"
-                    ></button>
-
-                    <button
-                        type="button"
-                        class="theme-swatch swatch-green"
-                        data-theme="green"
-                        aria-label="Tema hijau"
-                        title="Hijau"
-                    ></button>
-
-                    <button
-                        type="button"
-                        class="theme-swatch swatch-purple"
-                        data-theme="purple"
-                        aria-label="Tema ungu"
-                        title="Ungu"
-                    ></button>
-                </div>
-
-                <div class="menu-heading">Main Navigation</div>
-
-                <nav class="sidebar-nav">
-
-                    {{-- MENU UMUM --}}
-                    <a
-                        href="{{ route('dashboard') }}"
-                        class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
-                    >
-                        <span class="nav-icon">◉</span>
-                        <span class="nav-label">Dashboard</span>
-                    </a>
-
-                    @php
-                        $grup = function (string $ikon, string $label, array $tautan, array $pola) {
-                            return compact('ikon', 'label', 'tautan', 'pola');
-                        };
-                        $menu = [];
-
-                        // Menu Sprint 2–3 hanya tampil bila sprint tersebut sudah diaktifkan (PDLK_SPRINT).
-                        $saring = fn (array $tautan) => array_values(array_filter($tautan, fn ($t) => sprint($t['sprint'] ?? 1)));
-                        $tambah = function (string $ikon, string $label, array $tautan, array $pola) use (&$menu, $grup, $saring) {
-                            $tautan = $saring($tautan);
-                            if ($tautan) {
-                                $menu[] = $grup($ikon, $label, $tautan, $pola);
-                            }
-                        };
-
-                        if ($peranAktif === 'student') {
-                            $tambah('▦', 'Kegiatan PDLK', [
-                                ['Lowongan PDLK', route('portal.lowongan.index'), ['portal.lowongan.*', 'mahasiswa.pendaftaran.create']],
-                                ['Pendaftaran Saya', route('mahasiswa.pendaftaran.index'), 'mahasiswa.pendaftaran.*', 'sprint' => 2],
-                                ['Progres Pelaksanaan', route('mahasiswa.progres.edit'), 'mahasiswa.progres.*', 'sprint' => 2],
-                            ], ['portal.lowongan.*', 'mahasiswa.pendaftaran.*', 'mahasiswa.progres.*']);
-                            $tambah('◷', 'Monitoring', [
-                                ['Monev Tengah & Akhir', route('monitoring.index'), 'monitoring.*', 'sprint' => 3],
-                            ], ['monitoring.*']);
-                        }
-
-                        if ($peranAktif === 'upt_staff') {
-                            $tambah('▤', 'Informasi', [
-                                ['Berita', route('kelola.postingan.index'), 'kelola.postingan.*'],
-                                ['Lowongan', route('kelola.lowongan.index'), 'kelola.lowongan.*'],
-                                ['Pengumuman Hasil', route('kelola.hasil.index'), 'kelola.hasil.*', 'sprint' => 2],
-                                ['Galeri', route('kelola.galeri.index'), 'kelola.galeri.*'],
-                            ], ['kelola.postingan.*', 'kelola.lowongan.*', 'kelola.hasil.*', 'kelola.galeri.*']);
-                            $tambah('▦', 'Pengelolaan PDLK', [
-                                ['Pendaftar Lowongan', route('kelola.pendaftaran.index'), 'kelola.pendaftaran.*', 'sprint' => 2],
-                                ['Mahasiswa Aktif', route('peserta.index'), ['peserta.index', 'peserta.show', 'peserta.edit'], 'sprint' => 2],
-                                ['Tambah Mahasiswa Aktif', route('peserta.create'), 'peserta.create', 'sprint' => 2],
-                            ], ['kelola.pendaftaran.*', 'peserta.*']);
-                            $tambah('◷', 'Monev', [
-                                ['Kuesioner', route('kelola.kuesioner.index'), 'kelola.kuesioner.*', 'sprint' => 3],
-                                ['Jadwal Monev', route('kelola.jadwal-monev.index'), 'kelola.jadwal-monev.*', 'sprint' => 3],
-                                ['Rekap Monev', route('rekap-monev.index'), 'rekap-monev.*', 'sprint' => 3],
-                            ], ['kelola.kuesioner.*', 'kelola.jadwal-monev.*', 'rekap-monev.*']);
-                            $master = [];
-                            foreach (\App\Support\MasterData::all() as $kunci => $def) {
-                                $master[] = [$def['title'], route('kelola.master.index', $kunci), 'kelola.master.*', $kunci];
-                            }
-                            $tambah('☰', 'Data Master', $master, ['kelola.master.*']);
-                            $tambah('♙', 'Pengguna', [
-                                ['Pengguna & Peran', route('kelola.pengguna.index'), 'kelola.pengguna.*'],
-                            ], ['kelola.pengguna.*']);
-                        }
-
-                        if ($peranAktif === 'pdlk_coordinator') {
-                            $tambah('◷', 'Pemantauan', [
-                                ['Mahasiswa PDLK Prodi', route('peserta.index'), ['peserta.index', 'peserta.show', 'peserta.edit'], 'sprint' => 2],
-                                ['Tambah Mahasiswa Aktif', route('peserta.create'), 'peserta.create', 'sprint' => 2],
-                                ['Rekap Monev', route('rekap-monev.index'), 'rekap-monev.*', 'sprint' => 3],
-                            ], ['peserta.*', 'rekap-monev.*']);
-                        }
-
-                        if ($peranAktif === 'program_head') {
-                            $tambah('◷', 'Pemantauan', [
-                                ['Mahasiswa PDLK Prodi', route('peserta.index'), 'peserta.*', 'sprint' => 2],
-                                ['Rekap Monev', route('rekap-monev.index'), 'rekap-monev.*', 'sprint' => 3],
-                            ], ['peserta.*', 'rekap-monev.*']);
-                        }
-                    @endphp
-
-                    @foreach ($menu as $g)
-                        @php
-                            $terbuka = request()->routeIs(...$g['pola']);
-                        @endphp
-                        <div class="nav-group {{ $terbuka ? 'open' : '' }}">
-                            <button type="button" class="nav-group-toggle" data-menu-toggle
-                                    aria-expanded="{{ $terbuka ? 'true' : 'false' }}">
-                                <span class="nav-icon">{{ $g['ikon'] }}</span>
-                                <span class="nav-label">{{ $g['label'] }}</span>
-                                <span class="nav-arrow">›</span>
-                            </button>
-                            <div class="nav-submenu">
-                                @foreach ($g['tautan'] as $t)
-                                    @php
-                                        $aktifLink = request()->routeIs($t[2]) && (!isset($t[3]) || request()->route('master') === $t[3]);
-                                    @endphp
-                                    <a href="{{ $t[1] }}" class="nav-link {{ $aktifLink ? 'active' : '' }}"
-                                       @if ($aktifLink) aria-current="page" @endif>{{ $t[0] }}</a>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endforeach
-
-                    <a href="{{ route('beranda') }}" class="nav-link">
-                        <span class="nav-icon">⌂</span>
-                        <span class="nav-label">Halaman Publik</span>
-                    </a>
-
-                </nav>
-            </aside>
-
-            {{-- AREA KONTEN --}}
-            <main class="main-content">
-
-
-@php
-    $breadcrumbs = [];
-@endphp
-
-<div class="breadcrumb-bar">
-    <a href="{{ route('dashboard') }}" class="breadcrumb-home">
-        ⌂ Home
-    </a>
-
-    @if (count($breadcrumbs) > 0)
-        @foreach ($breadcrumbs as $crumb)
-            <span class="breadcrumb-separator">/</span>
-
-            <a href="{{ $crumb['url'] }}" class="breadcrumb-link">
-                {{ $crumb['label'] }}
-            </a>
-        @endforeach
-    @else
-        <span class="breadcrumb-separator">/</span>
-
-        <a href="{{ url()->current() }}" class="breadcrumb-link">
-            @yield('breadcrumb', 'Dashboard')
-        </a>
-    @endif
-</div>
-
-<style>
-    .breadcrumb-bar a {
-        text-decoration: none;
-        transition: color 0.15s ease;
-    }
-
-    .breadcrumb-bar .breadcrumb-link {
-        color: #60758f;
-    }
-
-    .breadcrumb-bar .breadcrumb-link:hover,
-    .breadcrumb-bar .breadcrumb-home:hover {
-        color: #348db8;
-        text-decoration: underline;
-    }
-
-    .breadcrumb-bar .breadcrumb-separator {
-        margin: 0 8px;
-        color: #9aa5b4;
-    }
-</style>
-
-
-                <div class="content-body">
-                    <div class="page-heading">
-                        <h1 class="page-title">
-                            @yield('page-title', 'Dashboard')
-                        </h1>
-                    </div>
-
-                    @yield('content')
-                </div>
-
-                <footer class="footer">
-                    <strong>Monitoring PDLK</strong>
-                    &nbsp; Copyright © UPT PP-ESTEM · Institut Teknologi Del
-                </footer>
-            </main>
         </div>
-    </div>
+    </nav>
 
+    <main class="dashboard-container">
+        <div class="container-fluid px-lg-4">
+            @if (! request()->routeIs('dashboard'))
+                <div class="mb-3">
+                    @include('partials.flash')
+                </div>
+            @endif
+            @yield('content')
+        </div>
+    </main>
+
+    <footer class="dashboard-footer">
+        <div class="container-fluid px-lg-4">
+            <div class="d-flex flex-column flex-sm-row align-items-center justify-content-center gap-2">
+                <span>&copy; {{ date('Y') }} UPT PP-ESTEM Institut Teknologi Del</span>
+                <span class="d-none d-sm-inline">·</span>
+                <span>Sistem Informasi Pembelajaran di Luar Kampus</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    @stack('scripts')
+</body>
+</html>
+
+@elseif ($peranAktif === 'upt_staff')
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@yield('title', 'Staf UPT | Sistem Informasi PDLK')</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..900;1,300..900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface-variant": "#434651", "surface": "#fbf9f8", "surface-container-high": "#eae8e7",
+                        "primary-fixed": "#d9e2ff", "on-tertiary-fixed": "#2d004f", "secondary-fixed-dim": "#a8c8ff",
+                        "on-surface": "#1b1c1c", "surface-tint": "#375ca8", "primary": "#002155",
+                        "outline-variant": "#c4c6d3", "surface-container-low": "#f5f3f3", "on-tertiary-fixed-variant": "#5e3085",
+                        "surface-variant": "#e4e2e2", "inverse-primary": "#b0c6ff", "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#003d79", "on-error": "#ffffff", "outline": "#747782",
+                        "on-background": "#1b1c1c", "on-tertiary": "#ffffff", "tertiary-fixed-dim": "#e0b7ff",
+                        "inverse-on-surface": "#f2f0f0", "tertiary-container": "#502176", "secondary-fixed": "#d6e3ff",
+                        "error": "#ba1a1a", "on-error-container": "#93000a", "surface-bright": "#fbf9f8",
+                        "surface-container-highest": "#e4e2e2", "secondary": "#175eae", "surface-dim": "#dbd9d9",
+                        "tertiary-fixed": "#f2daff", "secondary-container": "#72a9ff", "on-secondary": "#ffffff",
+                        "on-primary": "#ffffff", "error-container": "#ffdad6", "on-tertiary-container": "#c08ee9",
+                        "on-primary-container": "#7fa1f2", "inverse-surface": "#303030", "primary-fixed-dim": "#b0c6ff",
+                        "surface-container": "#f0eded", "on-primary-fixed": "#001945", "on-primary-fixed-variant": "#1a438e",
+                        "on-secondary-fixed": "#001b3c", "on-secondary-fixed-variant": "#00468a", "primary-container": "#003580",
+                        "background": "#fbf9f8", "tertiary": "#39025f"
+                    },
+                    spacing: { "margin": "2rem", "space-xl": "2.5rem", "space-xs": "0.25rem", "space-sm": "0.5rem", "space-md": "1rem", "gutter": "1.5rem", "space-lg": "1.5rem", "gutter-mobile": "1rem", "margin-mobile": "1rem" },
+                    fontFamily: { "sans": ["Poppins", "Hanken Grotesk", "sans-serif"] },
+                    fontSize: {
+                        "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+                        "headline-xl": ["36px", { "lineHeight": "44px", "fontWeight": "700" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "fontWeight": "700" }],
+                        "headline-sm": ["18px", { "lineHeight": "26px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }],
+                        "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+                        "headline-md": ["22px", { "lineHeight": "30px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="{{ asset('css/pdlk-app.css') }}">
+    <style>
+        :root { --accent: #1a81c2; --accent-dark: #003580; --accent-soft: #e7f3fa; }
+        body { font-family: 'Poppins', 'Hanken Grotesk', sans-serif; background-color: #eef2f7; margin: 0; }
+        .top-stripe { height: 4px; background-color: #46166c; width: 100%; position: fixed; top: 0; left: 0; z-index: 60; }
+        .header-custom { background-color: #1a81c2; height: 68px; top: 4px; }
+    </style>
+    @stack('styles')
+</head>
+<body class="bg-[#eef2f7] text-on-surface antialiased min-h-screen flex flex-col">
+    <div class="top-stripe"></div>
+
+    <header class="header-custom fixed w-full z-50 shadow-[0_2px_4px_rgba(0,53,128,0.12)] text-white">
+        @php $masterSemua = \App\Support\MasterData::all(); @endphp
+        <div class="max-w-[1440px] mx-auto h-full px-3 lg:px-5 flex items-center justify-between gap-2">
+            {{-- Brand Kiri --}}
+            <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 shrink-0 no-underline text-white">
+                <div class="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center border border-[#8cc5dd] shadow-sm overflow-hidden shrink-0">
+                    <img src="{{ asset('images/logo-del.png') }}" alt="Logo IT Del" class="w-full h-full object-contain">
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-bold text-white text-[14px] tracking-tight leading-none whitespace-nowrap">Sistem Informasi PDLK</span>
+                    <span class="text-[10px] text-white/85 font-medium tracking-wide leading-tight mt-0.5 whitespace-nowrap">UPT PP-ESTEM · IT Del</span>
+                </div>
+            </a>
+
+            {{-- Menu Tengah Ringkas --}}
+            <nav class="hidden xl:flex items-center gap-0.5 h-full">
+                <a href="{{ route('dashboard') }}"
+                   class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors no-underline {{ request()->routeIs('dashboard') ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
+                    <i class="bi bi-speedometer2 text-[13px]"></i><span>Dashboard</span>
+                </a>
+
+                <div class="relative group h-full flex items-center">
+                    <button type="button"
+                            class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors {{ request()->routeIs('kelola.master.*') ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
+                        <span>Data Master</span><i class="bi bi-chevron-down text-[9px] opacity-75"></i>
+                    </button>
+                    <div class="absolute left-0 top-full w-52 bg-white text-on-surface rounded-xl shadow-lg border border-outline-variant/30 py-2 hidden group-hover:block z-50">
+                        @foreach ($masterSemua as $kunci => $def)
+                            <a class="block px-4 py-2 text-xs hover:bg-surface-container hover:text-primary no-underline {{ request()->route('master') === $kunci ? 'font-bold text-primary bg-surface-container-low' : 'text-on-surface-variant' }}"
+                               href="{{ route('kelola.master.index', $kunci) }}">{{ $def['title'] }}</a>
+                        @endforeach
+                    </div>
+                </div>
+
+                <a href="{{ route('kelola.pengguna.index') }}"
+                   class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors no-underline {{ request()->routeIs('kelola.pengguna.*') ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
+                    <i class="bi bi-people text-[13px]"></i><span>Pengguna</span>
+                </a>
+
+                <div class="relative group h-full flex items-center">
+                    <button type="button"
+                            class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors {{ request()->routeIs('kelola.postingan.*', 'kelola.hasil.*', 'kelola.galeri.*') ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
+                        <span>Konten</span><i class="bi bi-chevron-down text-[9px] opacity-75"></i>
+                    </button>
+                    <div class="absolute left-0 top-full w-52 bg-white text-on-surface rounded-xl shadow-lg border border-outline-variant/30 py-2 hidden group-hover:block z-50">
+                        <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.postingan.index') }}">Berita</a>
+                        @if (sprint(2))
+                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.hasil.index') }}">Pengumuman Hasil</a>
+                        @endif
+                        <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.galeri.index') }}">Galeri Kegiatan</a>
+                        @if (isset($masterSemua['struktur-organisasi']) || isset($masterSemua['kontak']))
+                            <div class="border-t border-surface-variant my-1"></div>
+                        @endif
+                        @if (isset($masterSemua['struktur-organisasi']))
+                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.master.index', 'struktur-organisasi') }}">Struktur Organisasi</a>
+                        @endif
+                        @if (isset($masterSemua['kontak']))
+                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.master.index', 'kontak') }}">Kontak</a>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="relative group h-full flex items-center">
+                    <button type="button"
+                            class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors {{ request()->routeIs('kelola.lowongan.*', 'kelola.pendaftaran.*') ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
+                        <span>Lowongan PDLK</span><i class="bi bi-chevron-down text-[9px] opacity-75"></i>
+                    </button>
+                    <div class="absolute left-0 top-full w-52 bg-white text-on-surface rounded-xl shadow-lg border border-outline-variant/30 py-2 hidden group-hover:block z-50">
+                        <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.lowongan.index') }}">Kelola Lowongan PDLK</a>
+                        @if (sprint(2))
+                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.pendaftaran.index') }}">Kelola Pelamar</a>
+                        @endif
+                    </div>
+                </div>
+
+                @if (sprint(2))
+                    <a href="{{ route('peserta.index') }}"
+                       class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors no-underline {{ request()->routeIs('peserta.*') ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
+                        <i class="bi bi-person-workspace text-[13px]"></i><span>Peserta</span>
+                    </a>
+                @endif
+
+                @if (sprint(3))
+                    <div class="relative group h-full flex items-center">
+                        <button type="button"
+                                class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors {{ request()->routeIs('kelola.kuesioner.*', 'kelola.jadwal-monev.*', 'rekap-monev.*') ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
+                            <span>Monev</span><i class="bi bi-chevron-down text-[9px] opacity-75"></i>
+                        </button>
+                        <div class="absolute left-0 top-full w-48 bg-white text-on-surface rounded-xl shadow-lg border border-outline-variant/30 py-2 hidden group-hover:block z-50">
+                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.kuesioner.index') }}">Kuesioner</a>
+                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.jadwal-monev.index') }}">Jadwal Monev</a>
+                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('rekap-monev.index') }}">Rekap Hasil Monev</a>
+                        </div>
+                    </div>
+                @endif
+
+                <div class="relative group h-full flex items-center">
+                    <button type="button"
+                            class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                        <span>Laporan</span><i class="bi bi-chevron-down text-[9px] opacity-75"></i>
+                    </button>
+                    <div class="absolute right-0 top-full w-52 bg-white text-on-surface rounded-xl shadow-lg border border-outline-variant/30 py-2 hidden group-hover:block z-50">
+                        <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('rekapitulasi') }}">Rekapitulasi Peserta</a>
+                        @if (sprint(2))
+                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.pendaftaran.ekspor') }}">Ekspor Data Pendaftar</a>
+                        @endif
+                        @if (sprint(3))
+                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('rekap-monev.index') }}">Rekapitulasi Monev</a>
+                        @endif
+                    </div>
+                </div>
+            </nav>
+
+            {{-- Aksi Kanan (Klik untuk buka/tutup) --}}
+            <div class="flex items-center gap-2 shrink-0">
+                <div class="relative" data-portal-dropdown-wrap>
+                    <button aria-label="Notifikasi" onclick="togglePortalMenu('staffNotifMenu', event)"
+                            class="relative p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white focus:outline-none" type="button">
+                        <i class="bi bi-bell text-lg"></i>
+                        @if ($unreadNotif > 0)
+                            <span class="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-error text-[10px] font-bold text-white">{{ $unreadNotif }}</span>
+                        @endif
+                    </button>
+                    <div id="staffNotifMenu" data-portal-dropdown class="hidden absolute right-0 top-full mt-2 w-72 bg-white text-on-surface rounded-xl shadow-xl border border-outline-variant/20 py-2 z-50">
+                        <div class="px-4 py-2 border-b border-surface-variant text-xs font-bold text-primary">Notifikasi</div>
+                        @forelse ($notifikasiPortal as $notif)
+                            <a href="{{ $notif->url ?: '#' }}" class="block px-4 py-2.5 border-b border-surface-container hover:bg-surface-container-low no-underline">
+                                <div class="text-xs font-semibold text-primary">{{ $notif->title }}</div>
+                                @if ($notif->message)
+                                    <div class="text-[11px] text-on-surface-variant mt-0.5">{{ $notif->message }}</div>
+                                @endif
+                            </a>
+                        @empty
+                            <div class="px-4 py-4 text-xs text-on-surface-variant text-center">Belum ada notifikasi baru.</div>
+                        @endforelse
+                    </div>
+                </div>
+
+                <div class="hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full border border-white/60 text-white text-[10px] font-semibold tracking-wider uppercase whitespace-nowrap">
+                    <i class="bi bi-shield-check text-[12px]"></i><span>STAF UPT</span>
+                </div>
+
+                <div class="relative" data-portal-dropdown-wrap>
+                    <button onclick="togglePortalMenu('staffProfileMenu', event)"
+                            class="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 transition-colors text-left focus:outline-none" type="button">
+                        <div class="w-7 h-7 rounded-full bg-[#46166c] text-white flex items-center justify-center text-xs font-bold border border-white/40 shrink-0">
+                            {{ $initial }}
+                        </div>
+                        <span class="hidden sm:block text-xs font-semibold text-white leading-tight truncate max-w-[95px]">{{ $displayName }}</span>
+                        <i class="bi bi-caret-down-fill text-[9px] text-white/85 shrink-0"></i>
+                    </button>
+                    <div id="staffProfileMenu" data-portal-dropdown class="hidden absolute right-0 top-full mt-2 w-56 bg-white text-on-surface rounded-xl shadow-xl border border-outline-variant/20 py-2 z-50">
+                        <div class="px-4 py-2 border-b border-surface-variant">
+                            <p class="text-xs font-bold text-primary truncate m-0">{{ $displayName }}</p>
+                            @if ($email)
+                                <p class="text-[11px] text-on-surface-variant truncate m-0">{{ $email }}</p>
+                            @endif
+                        </div>
+
+                        @if (count($semuaPeran) > 1)
+                            <div class="px-4 pt-2 pb-1 text-[10px] uppercase tracking-wider text-outline font-bold">Ganti Peran</div>
+                            @foreach ($semuaPeran as $kodePeran)
+                                @continue($kodePeran === $peranAktif)
+                                <form method="POST" action="{{ route('peran.ganti', $kodePeran) }}">
+                                    @csrf
+                                    <button type="submit" class="w-full text-left flex items-center gap-2.5 px-4 py-1.5 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary">
+                                        <i class="bi bi-arrow-left-right text-sm"></i> {{ \App\Support\Peran::label($kodePeran) }}
+                                    </button>
+                                </form>
+                            @endforeach
+                            <div class="border-t border-surface-variant my-1"></div>
+                        @endif
+
+                        <a class="flex items-center gap-2.5 px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('beranda') }}">
+                            <i class="bi bi-box-arrow-up-right text-sm"></i> Lihat Situs Informasi
+                        </a>
+                        <div class="border-t border-surface-variant my-1"></div>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="w-full text-left flex items-center gap-2.5 px-4 py-2 text-xs text-error hover:bg-error-container hover:text-on-error-container">
+                                <i class="bi bi-box-arrow-right text-sm"></i> Keluar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <button type="button" onclick="document.getElementById('staffMobileMenu').classList.toggle('hidden')"
+                        class="xl:hidden p-1.5 rounded-lg hover:bg-white/10 text-white" aria-label="Buka menu">
+                    <i class="bi bi-list text-2xl"></i>
+                </button>
+            </div>
+        </div>
+
+        {{-- Menu Mobile Staf UPT --}}
+        <div id="staffMobileMenu" class="hidden xl:hidden bg-[#1a81c2] border-t border-white/15 px-4 py-3 space-y-1 text-xs shadow-lg max-h-[75vh] overflow-y-auto">
+            <a href="{{ route('dashboard') }}" class="block px-3 py-2 rounded font-semibold text-white hover:bg-white/15 no-underline">Dashboard</a>
+            <div class="px-3 pt-2 pb-1 text-white/70 font-semibold uppercase text-[10px]">Data Master</div>
+            @foreach ($masterSemua as $kunci => $def)
+                <a href="{{ route('kelola.master.index', $kunci) }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">{{ $def['title'] }}</a>
+            @endforeach
+            <a href="{{ route('kelola.pengguna.index') }}" class="block px-3 py-2 rounded text-white hover:bg-white/15 no-underline">Pengguna &amp; Role</a>
+            <div class="px-3 pt-2 pb-1 text-white/70 font-semibold uppercase text-[10px]">Konten &amp; Lowongan PDLK</div>
+            <a href="{{ route('kelola.postingan.index') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Berita</a>
+            @if (sprint(2))
+                <a href="{{ route('kelola.hasil.index') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Pengumuman Hasil</a>
+            @endif
+            <a href="{{ route('kelola.galeri.index') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Galeri Kegiatan</a>
+            @if (isset($masterSemua['struktur-organisasi']))
+                <a href="{{ route('kelola.master.index', 'struktur-organisasi') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Struktur Organisasi</a>
+            @endif
+            @if (isset($masterSemua['kontak']))
+                <a href="{{ route('kelola.master.index', 'kontak') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Kontak</a>
+            @endif
+            <a href="{{ route('kelola.lowongan.index') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Kelola Lowongan PDLK</a>
+            @if (sprint(2))
+                <a href="{{ route('kelola.pendaftaran.index') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Kelola Pelamar</a>
+                <a href="{{ route('peserta.index') }}" class="block px-3 py-2 rounded text-white hover:bg-white/15 no-underline">Peserta PDLK</a>
+            @endif
+            @if (sprint(3))
+                <div class="px-3 pt-2 pb-1 text-white/70 font-semibold uppercase text-[10px]">Monev</div>
+                <a href="{{ route('kelola.kuesioner.index') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Kuesioner</a>
+                <a href="{{ route('kelola.jadwal-monev.index') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Jadwal Monev</a>
+                <a href="{{ route('rekap-monev.index') }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">Rekap Hasil Monev</a>
+            @endif
+        </div>
+    </header>
+
+    <main class="w-full pt-[92px] bg-[#eef2f7] flex-1 pb-10 max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8">
+        @if (! request()->routeIs('dashboard'))
+            <div class="mb-4 flex items-center justify-between flex-wrap gap-2">
+                <div>
+                    <div class="text-xs text-on-surface-variant mb-1">@yield('breadcrumb', 'Dashboard')</div>
+                    <h1 class="text-xl font-bold text-primary m-0">@yield('page-title', 'Pengelolaan PDLK')</h1>
+                </div>
+            </div>
+        @endif
+        @yield('content')
+    </main>
+
+    <footer class="w-full bg-surface-container-lowest border-t border-outline-variant/30 py-4 mt-auto">
+        <div class="max-w-[1440px] mx-auto px-4 text-center text-on-surface-variant text-xs">
+            &copy; {{ date('Y') }} UPT PP-ESTEM Institut Teknologi Del · Sistem Informasi PDLK
+        </div>
+    </footer>
+
+    @stack('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const workspace = document.getElementById('workspace');
-
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            const notificationToggle = document.getElementById('notificationToggle');
-            const profileToggle = document.getElementById('profileToggle');
-            const themeToggle = document.getElementById('themeToggle');
-
-            const notificationPanel = document.getElementById('notificationPanel');
-            const profilePanel = document.getElementById('profilePanel');
-            const themePanel = document.getElementById('themePanel');
-
-            const dropdowns = [
-                { button: notificationToggle, panel: notificationPanel },
-                { button: profileToggle, panel: profilePanel },
-                { button: themeToggle, panel: themePanel }
-            ];
-
-            // Buka dan tutup sidebar.
-            sidebarToggle.addEventListener('click', function () {
-                workspace.classList.toggle('sidebar-collapsed');
-            });
-
-            // Dropdown notifikasi, profil dan pengaturan.
-            function closeDropdowns(exceptPanel = null) {
-                dropdowns.forEach(function (dropdown) {
-                    if (dropdown.panel !== exceptPanel) {
-                        dropdown.panel.hidden = true;
-                        dropdown.button.setAttribute('aria-expanded', 'false');
-                    }
-                });
-            }
-
-            dropdowns.forEach(function (dropdown) {
-                dropdown.button.addEventListener('click', function (event) {
-                    event.stopPropagation();
-
-                    const shouldOpen = dropdown.panel.hidden;
-
-                    closeDropdowns();
-
-                    if (shouldOpen) {
-                        dropdown.panel.hidden = false;
-                        dropdown.button.setAttribute('aria-expanded', 'true');
-                    }
-                });
-            });
-
-            // Tutup dropdown jika area di luar dropdown diklik.
-            document.addEventListener('click', function (event) {
-                const clickedInsideDropdown = dropdowns.some(function (dropdown) {
-                    return dropdown.button.contains(event.target)
-                        || dropdown.panel.contains(event.target);
-                });
-
-                if (!clickedInsideDropdown) {
-                    closeDropdowns();
-                }
-            });
-
-            // Buka/tutup submenu sidebar.
-            document.querySelectorAll('[data-menu-toggle]').forEach(function (button) {
-                button.addEventListener('click', function () {
-                    const group = button.closest('.nav-group');
-                    const isOpen = group.classList.toggle('open');
-
-                    button.setAttribute('aria-expanded', String(isOpen));
-                });
-            });
-
-            // Pilihan tema. Pilihan tetap tersimpan setelah halaman dimuat ulang.
-            const themes = {
-                blue: {
-                    accent: '#318ab7',
-                    dark: '#24749b',
-                    soft: '#e7f3fa'
-                },
-                red: {
-                    accent: '#e74c3c',
-                    dark: '#c0392b',
-                    soft: '#fdecea'
-                },
-                black: {
-                    accent: '#343a40',
-                    dark: '#22272e',
-                    soft: '#e9ecef'
-                },
-                green: {
-                    accent: '#159c78',
-                    dark: '#107a5e',
-                    soft: '#e3f5ef'
-                },
-                purple: {
-                    accent: '#6258a8',
-                    dark: '#4e438d',
-                    soft: '#efedfa'
-                }
-            };
-
-            function applyTheme(themeName) {
-                const theme = themes[themeName] || themes.blue;
-                const root = document.documentElement;
-
-                root.style.setProperty('--accent', theme.accent);
-                root.style.setProperty('--accent-dark', theme.dark);
-                root.style.setProperty('--accent-soft', theme.soft);
-
-                document.querySelectorAll('[data-theme]').forEach(function (button) {
-                    const isActive = button.dataset.theme === themeName;
-
-                    button.classList.toggle('active', isActive);
-                    button.setAttribute('aria-pressed', String(isActive));
-                });
-            }
-
-            document.querySelectorAll('[data-theme]').forEach(function (button) {
-                button.addEventListener('click', function () {
-                    const themeName = button.dataset.theme;
-
-                    applyTheme(themeName);
-
-                    try {
-                        localStorage.setItem('monitoring-pdlk-theme', themeName);
-                    } catch (error) {
-                        // Tema tetap bisa digunakan meskipun penyimpanan browser tidak tersedia.
-                    }
-                });
-            });
-
-            try {
-                const savedTheme = localStorage.getItem('monitoring-pdlk-theme');
-                applyTheme(savedTheme || 'blue');
-            } catch (error) {
-                applyTheme('blue');
+        function togglePortalMenu(id, event) {
+            event.stopPropagation();
+            const target = document.getElementById(id);
+            if (!target) return;
+            const willOpen = target.classList.contains('hidden');
+            document.querySelectorAll('[data-portal-dropdown]').forEach(el => el.classList.add('hidden'));
+            if (willOpen) target.classList.remove('hidden');
+        }
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('[data-portal-dropdown-wrap]')) {
+                document.querySelectorAll('[data-portal-dropdown]').forEach(el => el.classList.add('hidden'));
             }
         });
     </script>
 </body>
 </html>
+
+@else
+@php
+    $cakupanProdiIds = \App\Support\Peran::cakupanProdi();
+    $labelProdiNav = $cakupanProdiIds !== null && $cakupanProdiIds !== []
+        ? \App\Support\Sql::all("SELECT level || ' ' || name AS label FROM study_programs WHERE id IN (" . implode(',', array_map('intval', $cakupanProdiIds)) . ') ORDER BY level, name')
+            ->pluck('label')
+            ->implode(', ')
+        : 'Semua Prodi';
+@endphp
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@yield('title', 'Koordinator Prodi | Sistem Informasi PDLK')</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-fixed-variant": "#1a438e", "error": "#ba1a1a", "surface-container-lowest": "#ffffff",
+                        "secondary": "#1a81c2", "tertiary-fixed-dim": "#e0b7ff", "on-background": "#1b1c1c",
+                        "on-surface-variant": "#434651", "tertiary-fixed": "#f2daff", "surface-container-high": "#eae8e7",
+                        "on-tertiary-fixed": "#2d004f", "on-error": "#ffffff", "surface-container-highest": "#e4e2e2",
+                        "on-primary-fixed": "#001945", "background": "#fbf9f8", "surface-bright": "#fbf9f8",
+                        "primary": "#002155", "surface-dim": "#dbd9d9", "on-error-container": "#93000a",
+                        "on-secondary-container": "#003d79", "tertiary": "#46166c", "on-primary-container": "#7fa1f2",
+                        "on-primary": "#ffffff", "surface-container": "#f0eded", "on-tertiary-fixed-variant": "#5e3085",
+                        "on-tertiary-container": "#c08ee9", "on-secondary-fixed": "#001b3c", "secondary-container": "#72a9ff",
+                        "on-secondary-fixed-variant": "#00468a", "surface-variant": "#e4e2e2", "tertiary-container": "#502176",
+                        "surface": "#fbf9f8", "primary-fixed-dim": "#b0c6ff", "surface-container-low": "#f5f3f3",
+                        "secondary-fixed-dim": "#a8c8ff", "inverse-primary": "#b0c6ff", "outline": "#747782",
+                        "primary-fixed": "#d9e2ff", "inverse-on-surface": "#f2f0f0", "error-container": "#ffdad6",
+                        "primary-container": "#003580", "outline-variant": "#c4c6d3", "on-surface": "#1b1c1c",
+                        "on-secondary": "#ffffff", "on-tertiary": "#ffffff", "surface-tint": "#375ca8",
+                        "secondary-fixed": "#d6e3ff", "inverse-surface": "#303030"
+                    },
+                    fontFamily: { "sans": ["Hanken Grotesk", "sans-serif"] },
+                    fontSize: {
+                        "headline-sm": ["18px", { "lineHeight": "26px", "fontWeight": "600" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+                        "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="{{ asset('css/pdlk-app.css') }}">
+    <style>
+        :root { --accent: #1a81c2; --accent-dark: #003580; --accent-soft: #e7f3fa; }
+        body { font-family: 'Hanken Grotesk', sans-serif; background-color: #eef2f7; margin: 0; }
+    </style>
+    @stack('styles')
+</head>
+<body class="bg-[#eef2f7] font-body-md text-on-surface antialiased min-h-screen flex flex-col">
+    <header class="sticky top-0 z-50 w-full shadow-[0_2px_4px_rgba(0,53,128,0.12)]">
+        <div class="h-1 bg-[#46166c] w-full"></div>
+        <div class="h-16 bg-[#1a81c2] text-white px-4 lg:px-8">
+            <div class="max-w-7xl mx-auto h-full flex items-center justify-between gap-4">
+                <a href="{{ route('dashboard') }}" class="flex items-center gap-3 shrink-0 no-underline text-white">
+                    <div class="w-10 h-10 rounded-lg bg-white p-1 flex items-center justify-center shadow-sm border border-[#8cc5dd] overflow-hidden">
+                        <img src="{{ asset('images/logo-del.png') }}" alt="Logo IT Del" class="w-full h-full object-contain">
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="font-bold text-[15px] text-white leading-none tracking-tight">Sistem Informasi PDLK</span>
+                        <span class="text-[10px] text-white/85 uppercase tracking-wider font-semibold mt-0.5">UPT PP-ESTEM · IT Del</span>
+                    </div>
+                </a>
+
+                <nav class="hidden xl:flex items-center gap-1 h-full">
+                    <a href="{{ route('dashboard') }}"
+                       class="px-3 py-2 rounded-lg text-[13px] transition-colors flex items-center gap-1.5 no-underline {{ request()->routeIs('dashboard') ? 'bg-white/20 text-white font-semibold border-b-2 border-[#8cc5dd]' : 'text-white/90 hover:text-white hover:bg-white/10' }}">
+                        Dashboard Prodi
+                    </a>
+
+                    @if (sprint(2))
+                        <div class="relative group h-full flex items-center">
+                            <a href="{{ route('peserta.index') }}"
+                               class="px-3 py-2 rounded-lg text-[13px] transition-colors flex items-center gap-1 no-underline {{ request()->routeIs('peserta.*') ? 'bg-white/20 text-white font-semibold border-b-2 border-[#8cc5dd]' : 'text-white/90 hover:text-white hover:bg-white/10' }}">
+                                <span>Mahasiswa PDLK</span><span class="material-symbols-outlined text-[16px]">expand_more</span>
+                            </a>
+                            <div class="absolute top-full left-0 hidden group-hover:flex flex-col bg-white text-on-surface shadow-[0_8px_24px_rgba(0,53,128,0.16)] rounded-lg py-2 min-w-[210px] border-t-2 border-[#46166c] z-50">
+                                <a class="px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container-high hover:text-primary no-underline" href="{{ route('peserta.index') }}">Daftar Mahasiswa Prodi</a>
+                                @if ($peranAktif === 'pdlk_coordinator')
+                                    <a class="px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container-high hover:text-primary no-underline" href="{{ route('peserta.create') }}">Tambah Peserta Prodi</a>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
+
+                    @if (sprint(3))
+                        <a href="{{ route('rekap-monev.index') }}"
+                           class="px-3 py-2 rounded-lg text-[13px] transition-colors flex items-center gap-1.5 no-underline {{ request()->routeIs('rekap-monev.*') ? 'bg-white/20 text-white font-semibold border-b-2 border-[#8cc5dd]' : 'text-white/90 hover:text-white hover:bg-white/10' }}">
+                            Rekap Monev Prodi
+                        </a>
+                    @endif
+
+                    <a href="{{ route('rekapitulasi') }}"
+                       class="px-3 py-2 rounded-lg text-[13px] transition-colors flex items-center gap-1.5 no-underline text-white/90 hover:text-white hover:bg-white/10">
+                        Rekapitulasi Data
+                    </a>
+                </nav>
+
+                <div class="flex items-center gap-2.5 shrink-0">
+                    {{-- Notifikasi --}}
+                    <div class="relative" data-portal-dropdown-wrap>
+                        <button aria-label="Notifikasi" onclick="togglePortalMenu('koorNotifMenu', event)"
+                                class="relative p-2 rounded-lg text-white hover:bg-white/10 transition-colors" type="button">
+                            <span class="material-symbols-outlined text-[20px]">notifications</span>
+                            @if ($unreadNotif > 0)
+                                <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error ring-2 ring-[#1a81c2]"></span>
+                            @endif
+                        </button>
+                        <div id="koorNotifMenu" data-portal-dropdown class="hidden absolute right-0 top-full mt-2 w-72 bg-white text-on-surface rounded-xl shadow-xl border border-outline-variant/20 py-2 z-50">
+                            <div class="px-4 py-2 border-b border-surface-variant text-xs font-bold text-primary">Notifikasi</div>
+                            @forelse ($notifikasiPortal as $notif)
+                                <a href="{{ $notif->url ?: '#' }}" class="block px-4 py-2.5 border-b border-surface-container hover:bg-surface-container-low no-underline">
+                                    <div class="text-xs font-semibold text-primary">{{ $notif->title }}</div>
+                                    @if ($notif->message)
+                                        <div class="text-[11px] text-on-surface-variant mt-0.5">{{ $notif->message }}</div>
+                                    @endif
+                                </a>
+                            @empty
+                                <div class="px-4 py-4 text-xs text-on-surface-variant text-center">Belum ada notifikasi baru.</div>
+                            @endforelse
+                        </div>
+                    </div>
+
+                    <div class="hidden md:flex items-center gap-1.5">
+                        <span class="bg-white/15 border border-white/40 text-white px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap">
+                            {{ $peranAktif === 'pdlk_coordinator' ? 'KOORDINATOR PDLK' : 'KAPRODI' }}
+                        </span>
+                        <span class="bg-[#46166c] text-white px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide whitespace-nowrap max-w-[140px] truncate" title="{{ $labelProdiNav }}">
+                            {{ $labelProdiNav }}
+                        </span>
+                    </div>
+
+                    <div class="relative pl-2 border-l border-white/20" data-portal-dropdown-wrap>
+                        <button type="button" onclick="togglePortalMenu('koorProfileMenu', event)" class="flex items-center gap-2 text-left focus:outline-none">
+                            <div class="text-right hidden lg:block leading-tight">
+                                <p class="text-xs text-white font-semibold m-0 truncate max-w-[130px]">{{ $displayName }}</p>
+                                <p class="text-[10px] text-[#d6e3ff] m-0">{{ $roleLabel }}</p>
+                            </div>
+                            <div class="w-8 h-8 rounded-full bg-[#003580] text-white flex items-center justify-center text-xs font-bold border border-white/40 shrink-0">
+                                {{ $initial }}
+                            </div>
+                        </button>
+                        <div id="koorProfileMenu" data-portal-dropdown class="hidden absolute right-0 top-full mt-2 w-56 bg-white text-on-surface rounded-xl shadow-xl border border-outline-variant/20 py-2 z-50">
+                            <div class="px-4 py-2 border-b border-surface-variant">
+                                <p class="text-xs font-bold text-primary truncate m-0">{{ $displayName }}</p>
+                                <p class="text-[11px] text-on-surface-variant truncate m-0">{{ $labelProdiNav }}</p>
+                            </div>
+
+                            @if (count($semuaPeran) > 1)
+                                <div class="px-4 pt-2 pb-1 text-[10px] uppercase tracking-wider text-outline font-bold">Ganti Peran</div>
+                                @foreach ($semuaPeran as $kodePeran)
+                                    @continue($kodePeran === $peranAktif)
+                                    <form method="POST" action="{{ route('peran.ganti', $kodePeran) }}">
+                                        @csrf
+                                        <button type="submit" class="w-full text-left flex items-center gap-2.5 px-4 py-1.5 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary">
+                                            <i class="bi bi-arrow-left-right text-sm"></i> {{ \App\Support\Peran::label($kodePeran) }}
+                                        </button>
+                                    </form>
+                                @endforeach
+                                <div class="border-t border-surface-variant my-1"></div>
+                            @endif
+
+                            <a class="flex items-center gap-2.5 px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('beranda') }}">
+                                <i class="bi bi-box-arrow-up-right text-sm"></i> Lihat Situs Informasi
+                            </a>
+                            <div class="border-t border-surface-variant my-1"></div>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="w-full text-left flex items-center gap-2.5 px-4 py-2 text-xs text-error hover:bg-error-container hover:text-on-error-container">
+                                    <i class="bi bi-box-arrow-right text-sm"></i> Keluar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="document.getElementById('koorMobileMenu').classList.toggle('hidden')"
+                            class="xl:hidden p-1.5 rounded-lg hover:bg-white/10 text-white" aria-label="Buka menu">
+                        <i class="bi bi-list text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="koorMobileMenu" class="hidden xl:hidden bg-[#1a81c2] border-t border-white/15 px-4 py-3 space-y-1 text-xs shadow-lg">
+            <a href="{{ route('dashboard') }}" class="block px-3 py-2 rounded font-semibold text-white hover:bg-white/15 no-underline">Dashboard Prodi</a>
+            @if (sprint(2))
+                <a href="{{ route('peserta.index') }}" class="block px-3 py-2 rounded text-white hover:bg-white/15 no-underline">Daftar Mahasiswa Prodi</a>
+                @if ($peranAktif === 'pdlk_coordinator')
+                    <a href="{{ route('peserta.create') }}" class="block px-3 py-2 rounded text-white hover:bg-white/15 no-underline">Tambah Peserta Prodi</a>
+                @endif
+            @endif
+            @if (sprint(3))
+                <a href="{{ route('rekap-monev.index') }}" class="block px-3 py-2 rounded text-white hover:bg-white/15 no-underline">Rekap Monev Prodi</a>
+            @endif
+            <a href="{{ route('rekapitulasi') }}" class="block px-3 py-2 rounded text-white hover:bg-white/15 no-underline">Rekapitulasi Data</a>
+        </div>
+    </header>
+
+    <main class="w-full bg-[#eef2f7] flex-1 p-4 lg:p-6">
+        <div class="max-w-[1400px] mx-auto">
+            @if (! request()->routeIs('dashboard'))
+                <div class="mb-4">
+                    <div class="text-xs text-on-surface-variant mb-1">@yield('breadcrumb', 'Dashboard')</div>
+                    <h1 class="text-xl font-bold text-[#003580] m-0">@yield('page-title', 'Pemantauan Prodi')</h1>
+                </div>
+            @endif
+            @yield('content')
+        </div>
+    </main>
+
+    <footer class="w-full bg-surface-container-lowest border-t border-outline-variant/30 py-6">
+        <div class="max-w-7xl mx-auto px-4 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+            <p class="font-body-sm text-body-sm text-on-surface-variant m-0">&copy; {{ date('Y') }} UPT PP-ESTEM Institut Teknologi Del · Sistem Informasi PDLK</p>
+            <div class="flex items-center gap-4 text-on-surface-variant font-label-sm text-label-sm">
+                <a class="hover:text-primary transition-colors no-underline" href="{{ route('beranda') }}">Situs Publik PDLK</a>
+            </div>
+        </div>
+    </footer>
+
+    @stack('scripts')
+    <script>
+        function togglePortalMenu(id, event) {
+            event.stopPropagation();
+            const target = document.getElementById(id);
+            if (!target) return;
+            const willOpen = target.classList.contains('hidden');
+            document.querySelectorAll('[data-portal-dropdown]').forEach(el => el.classList.add('hidden'));
+            if (willOpen) target.classList.remove('hidden');
+        }
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('[data-portal-dropdown-wrap]')) {
+                document.querySelectorAll('[data-portal-dropdown]').forEach(el => el.classList.add('hidden'));
+            }
+        });
+    </script>
+</body>
+</html>
+@endif

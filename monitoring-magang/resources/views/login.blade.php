@@ -88,7 +88,7 @@
                 <div class="font-bold text-[#003580] text-base leading-tight">UPT PP-ESTEM</div>
                 <div class="font-medium text-[#0055A5] text-xs tracking-wider uppercase mb-3">Sistem Informasi PDLK</div>
                 <div class="text-[11px] font-extrabold text-[#46166c] tracking-[0.2em] uppercase mb-1">SELAMAT DATANG</div>
-                <h1 class="text-2xl font-extrabold text-[#003580] tracking-tight mb-2">Masuk ke SI PDLK</h1>
+                <h1 class="text-2xl font-extrabold text-[#003580] tracking-tight mb-2">Masuk ke Sistem Informasi PDLK</h1>
 
                 <div class="flex items-center justify-center gap-1.5 mb-2.5">
                     <span class="w-10 h-[3px] bg-[#1a81c2] rounded-full"></span>
