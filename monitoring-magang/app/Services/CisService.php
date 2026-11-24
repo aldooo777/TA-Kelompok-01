@@ -104,5 +104,24 @@ class CisService
 
     return $student;
 }
+
+    /**
+     * Mencari dosen di CIS berdasarkan nama (untuk menu Pengguna & Role).
+     */
+    public function cariDosen(string $nama): array
+    {
+        $response = Http::withToken($this->getToken())
+            ->acceptJson()
+            ->timeout(15)
+            ->get(config('sdi.cis_api_url') . '/library-api/dosen', [
+                'nama' => $nama,
+            ]);
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        return $response->json('data.dosen') ?? [];
+    }
     }
 

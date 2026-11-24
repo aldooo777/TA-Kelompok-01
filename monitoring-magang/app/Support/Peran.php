@@ -43,8 +43,12 @@ class Peran
         $cisId = $cisUser['user_id'] ?? null;
 
         $user = Sql::one(
-            'SELECT id, name, email, cis_position FROM users WHERE (cis_user_id = ?::bigint AND ?::bigint IS NOT NULL) OR username = ? LIMIT 1',
-            [$cisId, $cisId, $username]
+            'SELECT id, name, email, cis_position FROM users
+             WHERE (cis_user_id = ?::bigint AND ?::bigint IS NOT NULL)
+                OR username = ?
+                OR LOWER(email) = ?
+             LIMIT 1',
+            [$cisId, $cisId, $username, $email]
         );
 
         $data = [

@@ -171,6 +171,7 @@ Route::middleware('cis.auth')->group(function () {
         });
 
         Route::get('pengguna', [PenggunaController::class, 'index'])->name('pengguna.index');
+        Route::post('pengguna/dari-cis', [PenggunaController::class, 'tambahDariCis'])->name('pengguna.dari-cis');
         Route::get('pengguna/{id}', [PenggunaController::class, 'edit'])->whereNumber('id')->name('pengguna.edit');
         Route::post('pengguna/{id}/peran', [PenggunaController::class, 'tambahPeran'])->whereNumber('id')->name('pengguna.peran.store');
         Route::delete('pengguna/{id}/peran/{userRoleId}', [PenggunaController::class, 'hapusPeran'])->whereNumber('id')->name('pengguna.peran.destroy');

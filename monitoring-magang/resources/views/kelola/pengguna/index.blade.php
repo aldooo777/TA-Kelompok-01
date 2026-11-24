@@ -7,11 +7,65 @@
 @section('content')
 <div class="p-stack">
     @include('partials.flash')
+        <div class="p-card">
+        <h2 class="p-card-title">Tambah dari CIS</h2>
+        <p class="p-card-subtitle">Daftarkan dosen atau mahasiswa yang belum pernah login ke sistem ini.</p>
+
+        <form method="GET" class="p-toolbar" style="margin-top:16px">
+            <div class="p-field">
+                <label for="jenis">Jenis</label>
+                <select id="jenis" name="jenis" class="p-input">
+                    <option value="dosen" @selected($jenis === 'dosen')>Dosen (cari nama)</option>
+                    <option value="mahasiswa" @selected($jenis === 'mahasiswa')>Mahasiswa (cari NIM)</option>
+                </select>
+            </div>
+            <div class="p-field">
+                <label for="kata">Nama / NIM</label>
+                <input id="kata" name="kata" class="p-input" value="{{ $kata }}" placeholder="Minimal 3 karakter" minlength="3" required>
+            </div>
+            <button class="p-btn p-btn-primary">Cari di CIS</button>
+        </form>
+
+        @if ($errorCis)
+            <div class="p-alert p-alert-warning" style="margin-top:12px">{{ $errorCis }}</div>
+        @elseif ($kata !== '' && $hasilCis->isEmpty())
+            <p class="p-muted" style="margin-top:12px">Tidak ada data di CIS.</p>
+        @endif
+
+        @if ($hasilCis->isNotEmpty())
+            <div class="p-table-wrap">
+                <table class="p-table">
+                    <thead><tr><th>Nama</th><th>Prodi</th><th>Email</th><th>Aksi</th></tr></thead>
+                    <tbody>
+                        @foreach ($hasilCis as $h)
+                            <tr>
+                                <td>
+                                    <strong>{{ $h['nama'] ?? '-' }}</strong>
+                                    @if ($jenis === 'mahasiswa')<div class="p-muted">{{ $h['nim'] }}</div>@endif
+                                </td>
+                                <td>{{ $h['prodi'] ?? '-' }}</td>
+                                <td>{{ $h['email'] ?? '-' }}</td>
+                                <td>
+                                    <form method="POST" action="{{ route('kelola.pengguna.dari-cis') }}">
+                                        @csrf
+                                        <input type="hidden" name="jenis" value="{{ $jenis }}">
+                                        <input type="hidden" name="kata" value="{{ $kata }}">
+                                        <input type="hidden" name="id" value="{{ $jenis === 'dosen' ? ($h['user_id'] ?? '') : ($h['nim'] ?? '') }}">
+                                        <button class="p-btn p-btn-primary p-btn-sm">Tambah</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
 
     <div class="p-card">
         <h2 class="p-card-title">Pengguna CIS</h2>
         <p class="p-card-subtitle">
-            Akun tercatat otomatis saat pertama kali login. Pilih <strong>Atur Peran</strong> untuk memberi peran Staf UPT
+            Akun tercatat saat pertama kali login atau ditambahkan dari CIS. Pilih <strong>Atur Peran</strong> untuk memberi peran Staf UPT
             atau koordinator. Peran Mahasiswa dikenali otomatis dari akun CIS atau NIM.
         </p>
 
