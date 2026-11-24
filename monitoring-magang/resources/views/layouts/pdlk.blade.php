@@ -370,7 +370,12 @@
     <div class="top-stripe"></div>
 
     <header class="header-custom fixed w-full z-50 shadow-[0_2px_4px_rgba(0,53,128,0.12)] text-white">
-        @php $masterSemua = \App\Support\MasterData::all(); @endphp
+        @php
+            $masterSemua = \App\Support\MasterData::all();
+            $sedangMasterNonKonten = request()->routeIs('kelola.master.*') && !in_array(request()->route('master'), ['struktur-organisasi', 'kontak'], true);
+            $sedangKonten = request()->routeIs('kelola.postingan.*', 'kelola.hasil.*', 'kelola.galeri.*')
+                || (request()->routeIs('kelola.master.*') && in_array(request()->route('master'), ['struktur-organisasi', 'kontak'], true));
+        @endphp
         <div class="max-w-[1440px] mx-auto h-full px-3 lg:px-5 flex items-center justify-between gap-2">
             {{-- Brand Kiri --}}
             <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 shrink-0 no-underline text-white">
@@ -390,13 +395,15 @@
                     <i class="bi bi-speedometer2 text-[13px]"></i><span>Dashboard</span>
                 </a>
 
+                {{-- Data Master (tanpa Struktur Organisasi & Kontak, karena sudah dipindah ke Konten) --}}
                 <div class="relative group h-full flex items-center">
                     <button type="button"
-                            class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors {{ request()->routeIs('kelola.master.*') ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
+                            class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors {{ $sedangMasterNonKonten ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
                         <span>Data Master</span><i class="bi bi-chevron-down text-[9px] opacity-75"></i>
                     </button>
                     <div class="absolute left-0 top-full w-52 bg-white text-on-surface rounded-xl shadow-lg border border-outline-variant/30 py-2 hidden group-hover:block z-50">
                         @foreach ($masterSemua as $kunci => $def)
+                            @continue(in_array($kunci, ['struktur-organisasi', 'kontak'], true))
                             <a class="block px-4 py-2 text-xs hover:bg-surface-container hover:text-primary no-underline {{ request()->route('master') === $kunci ? 'font-bold text-primary bg-surface-container-low' : 'text-on-surface-variant' }}"
                                href="{{ route('kelola.master.index', $kunci) }}">{{ $def['title'] }}</a>
                         @endforeach
@@ -408,25 +415,31 @@
                     <i class="bi bi-people text-[13px]"></i><span>Pengguna</span>
                 </a>
 
+                {{-- Konten (Berita, Pengumuman Hasil, Galeri, Struktur Organisasi, Kontak) --}}
                 <div class="relative group h-full flex items-center">
                     <button type="button"
-                            class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors {{ request()->routeIs('kelola.postingan.*', 'kelola.hasil.*', 'kelola.galeri.*') ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
+                            class="text-[12.5px] whitespace-nowrap flex items-center gap-1 px-2 py-1.5 transition-colors {{ $sedangKonten ? 'bg-white/20 text-white border-b-[3px] border-[#8cc5dd] font-semibold rounded-t-lg' : 'text-white/90 hover:text-white hover:bg-white/10 rounded-lg' }}">
                         <span>Konten</span><i class="bi bi-chevron-down text-[9px] opacity-75"></i>
                     </button>
                     <div class="absolute left-0 top-full w-52 bg-white text-on-surface rounded-xl shadow-lg border border-outline-variant/30 py-2 hidden group-hover:block z-50">
-                        <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.postingan.index') }}">Berita</a>
+                        <a class="block px-4 py-2 text-xs hover:bg-surface-container hover:text-primary no-underline {{ request()->routeIs('kelola.postingan.*') ? 'font-bold text-primary bg-surface-container-low' : 'text-on-surface-variant' }}"
+                           href="{{ route('kelola.postingan.index') }}">Berita</a>
                         @if (sprint(2))
-                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.hasil.index') }}">Pengumuman Hasil</a>
+                            <a class="block px-4 py-2 text-xs hover:bg-surface-container hover:text-primary no-underline {{ request()->routeIs('kelola.hasil.*') ? 'font-bold text-primary bg-surface-container-low' : 'text-on-surface-variant' }}"
+                               href="{{ route('kelola.hasil.index') }}">Pengumuman Hasil</a>
                         @endif
-                        <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.galeri.index') }}">Galeri Kegiatan</a>
+                        <a class="block px-4 py-2 text-xs hover:bg-surface-container hover:text-primary no-underline {{ request()->routeIs('kelola.galeri.*') ? 'font-bold text-primary bg-surface-container-low' : 'text-on-surface-variant' }}"
+                           href="{{ route('kelola.galeri.index') }}">Galeri Kegiatan</a>
                         @if (isset($masterSemua['struktur-organisasi']) || isset($masterSemua['kontak']))
                             <div class="border-t border-surface-variant my-1"></div>
                         @endif
                         @if (isset($masterSemua['struktur-organisasi']))
-                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.master.index', 'struktur-organisasi') }}">Struktur Organisasi</a>
+                            <a class="block px-4 py-2 text-xs hover:bg-surface-container hover:text-primary no-underline {{ request()->route('master') === 'struktur-organisasi' ? 'font-bold text-primary bg-surface-container-low' : 'text-on-surface-variant' }}"
+                               href="{{ route('kelola.master.index', 'struktur-organisasi') }}">Struktur Organisasi</a>
                         @endif
                         @if (isset($masterSemua['kontak']))
-                            <a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container hover:text-primary no-underline" href="{{ route('kelola.master.index', 'kontak') }}">Kontak</a>
+                            <a class="block px-4 py-2 text-xs hover:bg-surface-container hover:text-primary no-underline {{ request()->route('master') === 'kontak' ? 'font-bold text-primary bg-surface-container-low' : 'text-on-surface-variant' }}"
+                               href="{{ route('kelola.master.index', 'kontak') }}">Kontak</a>
                         @endif
                     </div>
                 </div>
@@ -567,6 +580,7 @@
             <a href="{{ route('dashboard') }}" class="block px-3 py-2 rounded font-semibold text-white hover:bg-white/15 no-underline">Dashboard</a>
             <div class="px-3 pt-2 pb-1 text-white/70 font-semibold uppercase text-[10px]">Data Master</div>
             @foreach ($masterSemua as $kunci => $def)
+                @continue(in_array($kunci, ['struktur-organisasi', 'kontak'], true))
                 <a href="{{ route('kelola.master.index', $kunci) }}" class="block pl-6 pr-3 py-1.5 text-white hover:bg-white/15 rounded no-underline">{{ $def['title'] }}</a>
             @endforeach
             <a href="{{ route('kelola.pengguna.index') }}" class="block px-3 py-2 rounded text-white hover:bg-white/15 no-underline">Pengguna &amp; Role</a>
